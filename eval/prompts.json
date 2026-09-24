@@ -1,0 +1,651 @@
+{
+  "version": "1.0.0",
+  "updated": "2026-09-24",
+  "description": "GuideUI 생성 품질·가이드 준수율 평가용 프롬프트. tuning 20개 + holdout 5개.",
+  "guide": {
+    "name": "GuideUI Sample DS",
+    "version": "1.0.0",
+    "path": "sample-guide/"
+  },
+  "scoring": {
+    "globalRuleIds": [
+      "TKN-01",
+      "TKN-02",
+      "TKN-03",
+      "TKN-04",
+      "TKN-05",
+      "CLR-01",
+      "CLR-02",
+      "TYP-01",
+      "BTN-02",
+      "BTN-07",
+      "BTN-08",
+      "A11Y-01",
+      "A11Y-02",
+      "A11Y-03",
+      "A11Y-04",
+      "A11Y-05",
+      "A11Y-07",
+      "WRT-01",
+      "WRT-02",
+      "WRT-05"
+    ],
+    "globalRuleNote": "모든 생성 결과에 공통 적용. 검사 대상 요소가 코드에 없으면 na로 처리하고 분모에서 제외한다.",
+    "ruleResult": [
+      "pass",
+      "fail",
+      "na"
+    ],
+    "compliance": "준수율 = pass / (pass + fail). 대상 = globalRuleIds ∪ 프롬프트 ruleIds (중복 제거)",
+    "manualRules": "가이드에서 '수동'으로 표시된 규칙은 ruleIds에 넣지 않는다.",
+    "holdout": "split=holdout 5개는 프롬프트·청킹·top-k 튜닝에 사용하지 않고, 최종 측정에서만 사용한다.",
+    "followUp": "followUp이 있는 항목은 1차 생성 결과에 이어서 대화로 수정 요청하고, followUp.ruleIds를 추가로 채점한다."
+  },
+  "prompts": [
+    {
+      "id": "form-01",
+      "group": "form",
+      "split": "tuning",
+      "difficulty": "easy",
+      "title": "로그인 폼",
+      "prompt": "이메일과 비밀번호로 로그인하는 폼을 만들어줘. 로그인 상태 유지 체크박스랑 비밀번호 찾기 링크도 넣어줘.",
+      "requirements": [
+        "이메일 입력 필드",
+        "비밀번호 입력 필드",
+        "로그인 상태 유지 체크박스",
+        "비밀번호 찾기 링크",
+        "로그인 제출 버튼"
+      ],
+      "ruleIds": [
+        "FRM-01",
+        "FRM-02",
+        "FRM-06",
+        "FRM-07",
+        "BTN-01",
+        "BTN-03",
+        "BTN-08",
+        "WRT-04"
+      ],
+      "followUp": {
+        "prompt": "이메일 형식이 틀렸을 때 에러 상태도 보여줘.",
+        "requirements": [
+          "이메일 필드 에러 상태",
+          "원인과 해결 방법이 있는 에러 문구"
+        ],
+        "ruleIds": [
+          "FRM-04",
+          "FRM-05",
+          "WRT-06"
+        ]
+      }
+    },
+    {
+      "id": "form-02",
+      "group": "form",
+      "split": "tuning",
+      "difficulty": "medium",
+      "title": "회원가입 폼",
+      "prompt": "회원가입 폼을 만들어줘. 이름, 이메일, 비밀번호, 비밀번호 확인을 받고 모두 필수야. 비밀번호 입력 규칙도 안내해줘.",
+      "requirements": [
+        "이름·이메일·비밀번호·비밀번호 확인 필드",
+        "필수 표시",
+        "비밀번호 규칙 안내 문구",
+        "회원가입 제출 버튼"
+      ],
+      "ruleIds": [
+        "FRM-01",
+        "FRM-03",
+        "FRM-05",
+        "FRM-06",
+        "FRM-07",
+        "BTN-01",
+        "WRT-07"
+      ]
+    },
+    {
+      "id": "form-03",
+      "group": "form",
+      "split": "tuning",
+      "difficulty": "medium",
+      "title": "비밀번호 변경 폼 (에러 상태)",
+      "prompt": "비밀번호 변경 폼을 만들어줘. 현재 비밀번호, 새 비밀번호, 새 비밀번호 확인 필드가 있어. 새 비밀번호 확인이 일치하지 않는 에러 상태로 보여줘.",
+      "requirements": [
+        "현재·새·확인 비밀번호 필드",
+        "확인 필드 에러 상태",
+        "불일치 에러 문구",
+        "변경 제출 버튼"
+      ],
+      "ruleIds": [
+        "FRM-01",
+        "FRM-04",
+        "FRM-05",
+        "FRM-07",
+        "BTN-01",
+        "WRT-06"
+      ]
+    },
+    {
+      "id": "form-04",
+      "group": "form",
+      "split": "tuning",
+      "difficulty": "medium",
+      "title": "프로필 수정 폼",
+      "prompt": "프로필 수정 폼을 만들어줘. 이름(필수), 이메일(필수), 휴대폰 번호(선택), 자기소개(선택, 여러 줄)가 있고, 저장 버튼과 취소 버튼이 있어.",
+      "requirements": [
+        "이름·이메일·휴대폰·자기소개 필드",
+        "필수/선택 구분",
+        "여러 줄 입력(textarea)",
+        "저장 버튼",
+        "취소 버튼"
+      ],
+      "ruleIds": [
+        "FRM-01",
+        "FRM-03",
+        "FRM-07",
+        "BTN-01",
+        "BTN-03",
+        "BTN-06",
+        "BTN-07"
+      ]
+    },
+    {
+      "id": "form-05",
+      "group": "form",
+      "split": "tuning",
+      "difficulty": "hard",
+      "title": "배송지 입력 폼",
+      "prompt": "배송지 입력 폼을 만들어줘. 받는 분, 휴대폰 번호, 우편번호, 기본 주소, 상세 주소를 받아. 우편번호 옆에는 주소 검색 버튼이 있고, 맨 아래 배송지 저장 버튼이 있어.",
+      "requirements": [
+        "받는 분·휴대폰·우편번호·기본 주소·상세 주소 필드",
+        "우편번호 옆 주소 검색 버튼",
+        "배송지 저장 버튼"
+      ],
+      "ruleIds": [
+        "FRM-01",
+        "FRM-03",
+        "FRM-06",
+        "FRM-07",
+        "BTN-01",
+        "BTN-03",
+        "BTN-07"
+      ],
+      "notes": "주소 검색 버튼이 primary가 되면 BTN-03(primary 1개) 위반. 버튼 위계 판단을 보는 프롬프트."
+    },
+    {
+      "id": "nav-01",
+      "group": "navigationLayout",
+      "split": "tuning",
+      "difficulty": "easy",
+      "title": "상단 네비게이션",
+      "prompt": "서비스 상단 네비게이션을 만들어줘. 왼쪽에 로고, 가운데 메뉴(홈, 서비스, 가격, 문의)가 있고 지금은 서비스 페이지야. 오른쪽에는 로그인과 회원가입이 있어.",
+      "requirements": [
+        "홈 링크 로고",
+        "메뉴 4개",
+        "현재 페이지(서비스) 강조",
+        "로그인·회원가입 이동 요소"
+      ],
+      "ruleIds": [
+        "NAV-01",
+        "NAV-02",
+        "NAV-03",
+        "NAV-04",
+        "NAV-06",
+        "BTN-08"
+      ],
+      "notes": "로그인·회원가입은 페이지 이동이므로 <a>가 정답 (BTN-08)."
+    },
+    {
+      "id": "nav-02",
+      "group": "navigationLayout",
+      "split": "tuning",
+      "difficulty": "hard",
+      "title": "반응형 네비게이션 (모바일 메뉴)",
+      "prompt": "모바일에서는 햄버거 버튼을 누르면 메뉴가 열리는 반응형 상단 네비게이션을 만들어줘. 메뉴는 홈, 서비스, 가격, 문의야.",
+      "requirements": [
+        "데스크톱 메뉴",
+        "모바일 햄버거 버튼",
+        "열고 닫히는 모바일 메뉴 영역",
+        "열림 상태 관리"
+      ],
+      "ruleIds": [
+        "NAV-01",
+        "NAV-03",
+        "NAV-05",
+        "NAV-06",
+        "BTN-05",
+        "BTN-07",
+        "MDL-03"
+      ],
+      "notes": "드로어 형태로 만들면 MDL-03(bg-overlay, shadow-modal)이 적용되고, 펼침 메뉴면 N/A."
+    },
+    {
+      "id": "nav-03",
+      "group": "navigationLayout",
+      "split": "tuning",
+      "difficulty": "medium",
+      "title": "대시보드 사이드바",
+      "prompt": "대시보드용 사이드바 메뉴를 만들어줘. 개요, 통계, 사용자 관리, 설정 메뉴가 있고, 사용자 관리와 설정은 '관리' 그룹으로 묶어줘. 지금은 통계 페이지야.",
+      "requirements": [
+        "메뉴 4개",
+        "관리 그룹 제목",
+        "현재 페이지(통계) 강조"
+      ],
+      "ruleIds": [
+        "NAV-01",
+        "NAV-02",
+        "NAV-03",
+        "NAV-06"
+      ]
+    },
+    {
+      "id": "nav-04",
+      "group": "navigationLayout",
+      "split": "tuning",
+      "difficulty": "medium",
+      "title": "브레드크럼 + 탭",
+      "prompt": "설정 페이지 상단을 만들어줘. 홈 > 설정 > 알림 브레드크럼이 있고, 그 아래 페이지 제목과 일반, 알림, 보안 탭이 있어. 지금은 알림 탭이 선택된 상태야.",
+      "requirements": [
+        "브레드크럼 3단계",
+        "현재 위치 표시",
+        "페이지 제목",
+        "탭 3개",
+        "선택된 탭과 탭 패널"
+      ],
+      "ruleIds": [
+        "NAV-01",
+        "NAV-02",
+        "NAV-07",
+        "A11Y-06",
+        "TYP-03"
+      ]
+    },
+    {
+      "id": "layout-01",
+      "group": "navigationLayout",
+      "split": "tuning",
+      "difficulty": "hard",
+      "title": "대시보드 레이아웃",
+      "prompt": "상단 네비게이션, 왼쪽 사이드바, 오른쪽 본문으로 된 대시보드 화면을 만들어줘. 본문에는 페이지 제목과 요약 카드 3개가 있어.",
+      "requirements": [
+        "상단 네비게이션",
+        "사이드바",
+        "본문(main) 영역",
+        "페이지 제목",
+        "요약 카드 3개"
+      ],
+      "ruleIds": [
+        "NAV-01",
+        "NAV-04",
+        "TYP-03",
+        "A11Y-06",
+        "CRD-01",
+        "CRD-02",
+        "CRD-05"
+      ],
+      "followUp": {
+        "prompt": "모바일에서는 사이드바를 숨기고 햄버거 버튼으로 열리게 해줘.",
+        "requirements": [
+          "모바일에서 사이드바 숨김",
+          "햄버거 버튼으로 사이드바 열기"
+        ],
+        "ruleIds": [
+          "NAV-05",
+          "BTN-05"
+        ]
+      }
+    },
+    {
+      "id": "card-01",
+      "group": "cardList",
+      "split": "tuning",
+      "difficulty": "easy",
+      "title": "상품 카드",
+      "prompt": "상품 카드를 만들어줘. 위에 상품 이미지가 있고, 그 아래 상품명, 가격, 장바구니 담기 버튼이 있어.",
+      "requirements": [
+        "상품 이미지",
+        "상품명",
+        "가격",
+        "장바구니 담기 버튼"
+      ],
+      "ruleIds": [
+        "CRD-01",
+        "CRD-02",
+        "CRD-03",
+        "CRD-05",
+        "CRD-06",
+        "BTN-01"
+      ],
+      "followUp": {
+        "prompt": "품절 상태도 만들어줘. 품절 배지를 붙이고 버튼은 누를 수 없게 해줘.",
+        "requirements": [
+          "품절 배지",
+          "비활성화된 버튼"
+        ],
+        "ruleIds": [
+          "CRD-07",
+          "BTN-04"
+        ]
+      }
+    },
+    {
+      "id": "card-02",
+      "group": "cardList",
+      "split": "tuning",
+      "difficulty": "medium",
+      "title": "게시글 카드 목록",
+      "prompt": "블로그 게시글 목록을 카드로 만들어줘. 각 카드는 카테고리, 제목, 두 줄 요약, 작성일이 있고, 카드를 누르면 상세 페이지로 이동해. 3개 정도 보여줘.",
+      "requirements": [
+        "카드 3개",
+        "카테고리 표시",
+        "제목·요약·작성일",
+        "카드 클릭 시 상세 이동"
+      ],
+      "ruleIds": [
+        "CRD-01",
+        "CRD-03",
+        "CRD-04",
+        "CRD-05",
+        "CRD-07",
+        "BTN-08"
+      ]
+    },
+    {
+      "id": "card-03",
+      "group": "cardList",
+      "split": "tuning",
+      "difficulty": "medium",
+      "title": "통계 요약 카드",
+      "prompt": "통계 요약 카드 3개를 만들어줘. 총 매출, 신규 가입자, 이탈률이고 각각 전주 대비 증감을 보여줘. 이탈률은 늘어난 상황이야.",
+      "requirements": [
+        "지표 카드 3개",
+        "지표 이름과 값",
+        "전주 대비 증감",
+        "증가/감소 구분"
+      ],
+      "ruleIds": [
+        "CRD-01",
+        "CRD-02",
+        "CRD-03",
+        "CLR-03",
+        "A11Y-07"
+      ],
+      "notes": "초록·빨강 텍스트 대비(CLR-03)를 채점. 증감을 색상만으로 표현했는지(CLR-04, 수동)는 관찰만 기록."
+    },
+    {
+      "id": "card-04",
+      "group": "cardList",
+      "split": "tuning",
+      "difficulty": "hard",
+      "title": "요금제 선택 카드",
+      "prompt": "요금제 선택 화면을 만들어줘. 베이직, 프로, 팀 세 가지 요금제 카드가 있고, 프로는 추천 요금제로 강조해줘. 카드를 눌러서 하나를 선택하고, 아래 다음 버튼으로 넘어가.",
+      "requirements": [
+        "요금제 카드 3개",
+        "프로 추천 강조",
+        "카드 선택 상태",
+        "다음 버튼"
+      ],
+      "ruleIds": [
+        "CRD-01",
+        "CRD-04",
+        "CRD-07",
+        "BTN-01",
+        "BTN-03",
+        "BTN-07"
+      ],
+      "notes": "선택형 카드는 <button> + aria-pressed(또는 라디오 그룹)가 정답. div onClick이면 CRD-04 위반."
+    },
+    {
+      "id": "list-01",
+      "group": "cardList",
+      "split": "tuning",
+      "difficulty": "medium",
+      "title": "알림 목록",
+      "prompt": "알림 목록을 만들어줘. 각 알림에는 아이콘, 내용, 받은 시간이 있고, 읽지 않은 알림은 표시해줘. 목록 위에는 모두 읽음 처리하는 버튼이 있어.",
+      "requirements": [
+        "알림 항목들",
+        "아이콘·내용·시간",
+        "읽지 않음 표시",
+        "모두 읽음 처리 버튼"
+      ],
+      "ruleIds": [
+        "CRD-07",
+        "A11Y-07",
+        "NAV-03",
+        "WRT-01",
+        "WRT-02"
+      ],
+      "notes": "NAV-03은 목록 마크업(ul/li) 확인용으로 차용."
+    },
+    {
+      "id": "modal-01",
+      "group": "modalFeedback",
+      "split": "tuning",
+      "difficulty": "medium",
+      "title": "삭제 확인 모달",
+      "prompt": "프로젝트 삭제 확인 모달을 만들어줘. 삭제하면 되돌릴 수 없다는 걸 알려주고, 취소하거나 삭제할 수 있어.",
+      "requirements": [
+        "모달 제목",
+        "되돌릴 수 없다는 안내",
+        "취소 버튼",
+        "삭제 버튼",
+        "닫기 버튼"
+      ],
+      "ruleIds": [
+        "MDL-01",
+        "MDL-02",
+        "MDL-03",
+        "MDL-05",
+        "MDL-06",
+        "BTN-06",
+        "WRT-03"
+      ]
+    },
+    {
+      "id": "modal-02",
+      "group": "modalFeedback",
+      "split": "tuning",
+      "difficulty": "medium",
+      "title": "이름 변경 모달",
+      "prompt": "프로젝트 이름을 바꾸는 모달을 만들어줘. 이름 입력 필드 하나와 저장, 취소 버튼이 있어.",
+      "requirements": [
+        "모달 제목",
+        "이름 입력 필드",
+        "저장 버튼",
+        "취소 버튼",
+        "닫기 버튼"
+      ],
+      "ruleIds": [
+        "MDL-01",
+        "MDL-02",
+        "MDL-04",
+        "FRM-01",
+        "FRM-06",
+        "BTN-03",
+        "BTN-06"
+      ],
+      "followUp": {
+        "prompt": "이름이 비어 있을 때 에러 상태를 추가해줘.",
+        "requirements": [
+          "이름 필드 에러 상태",
+          "에러 문구"
+        ],
+        "ruleIds": [
+          "FRM-04",
+          "FRM-05",
+          "WRT-06"
+        ]
+      }
+    },
+    {
+      "id": "modal-03",
+      "group": "modalFeedback",
+      "split": "tuning",
+      "difficulty": "hard",
+      "title": "이용약관 동의 모달",
+      "prompt": "이용약관 동의 모달을 만들어줘. 약관 내용은 길어서 스크롤되고, 아래에 동의 체크박스가 있어. 체크해야만 계속하기 버튼을 누를 수 있어.",
+      "requirements": [
+        "모달 제목",
+        "스크롤되는 긴 약관 본문",
+        "동의 체크박스",
+        "체크 전 비활성화되는 계속 버튼",
+        "취소 또는 닫기"
+      ],
+      "ruleIds": [
+        "MDL-01",
+        "MDL-02",
+        "MDL-03",
+        "FRM-01",
+        "BTN-04",
+        "BTN-06"
+      ]
+    },
+    {
+      "id": "feedback-01",
+      "group": "modalFeedback",
+      "split": "tuning",
+      "difficulty": "medium",
+      "title": "저장 실패 에러 배너",
+      "prompt": "폼 제출에 실패했을 때 폼 위에 보여줄 에러 요약 배너를 만들어줘. 이메일과 휴대폰 번호 두 필드에 문제가 있는 상황이야.",
+      "requirements": [
+        "에러 배너",
+        "문제가 있는 필드 2개 요약",
+        "해결 방법 안내"
+      ],
+      "ruleIds": [
+        "CLR-03",
+        "WRT-05",
+        "WRT-06",
+        "CRD-01",
+        "A11Y-07"
+      ],
+      "notes": "role=\"alert\" 사용 여부(A11Y-08)는 수동 규칙이라 채점 제외, 관찰만 기록."
+    },
+    {
+      "id": "feedback-02",
+      "group": "modalFeedback",
+      "split": "tuning",
+      "difficulty": "easy",
+      "title": "저장 완료 토스트",
+      "prompt": "저장이 끝났을 때 화면 오른쪽 아래에 뜨는 완료 토스트를 만들어줘. 아이콘과 문구, 닫기 버튼이 있어.",
+      "requirements": [
+        "화면 우측 하단 고정",
+        "성공 아이콘",
+        "완료 문구",
+        "닫기 버튼"
+      ],
+      "ruleIds": [
+        "CLR-03",
+        "BTN-05",
+        "A11Y-07",
+        "WRT-05"
+      ]
+    },
+    {
+      "id": "holdout-01",
+      "group": "form",
+      "split": "holdout",
+      "difficulty": "easy",
+      "title": "비밀번호 찾기 폼",
+      "prompt": "비밀번호 찾기 폼을 만들어줘. 가입한 이메일을 입력하면 재설정 링크를 보내주고, 로그인 화면으로 돌아가는 링크도 있어.",
+      "requirements": [
+        "이메일 입력 필드",
+        "재설정 링크 전송 버튼",
+        "로그인으로 돌아가기 링크"
+      ],
+      "ruleIds": [
+        "FRM-01",
+        "FRM-02",
+        "FRM-07",
+        "BTN-01",
+        "BTN-08",
+        "WRT-02",
+        "WRT-04"
+      ]
+    },
+    {
+      "id": "holdout-02",
+      "group": "navigationLayout",
+      "split": "holdout",
+      "difficulty": "hard",
+      "title": "검색 결과 페이지",
+      "prompt": "검색 결과 페이지를 만들어줘. 위에 검색창, 왼쪽에 카테고리와 가격대 필터, 오른쪽에 결과 카드 목록이 있어.",
+      "requirements": [
+        "검색 입력과 검색 버튼",
+        "카테고리 필터",
+        "가격대 필터",
+        "결과 카드 목록"
+      ],
+      "ruleIds": [
+        "FRM-01",
+        "FRM-09",
+        "CRD-01",
+        "CRD-04",
+        "TYP-03",
+        "BTN-03"
+      ]
+    },
+    {
+      "id": "holdout-03",
+      "group": "modalFeedback",
+      "split": "holdout",
+      "difficulty": "medium",
+      "title": "알림 설정 모달",
+      "prompt": "알림 설정 모달을 만들어줘. 이메일, 문자, 앱 푸시 중에 받을 알림을 고르고 저장하거나 취소할 수 있어.",
+      "requirements": [
+        "모달 제목",
+        "알림 채널 선택 3개",
+        "저장 버튼",
+        "취소 버튼"
+      ],
+      "ruleIds": [
+        "MDL-01",
+        "MDL-02",
+        "FRM-01",
+        "FRM-09",
+        "BTN-06",
+        "WRT-02"
+      ]
+    },
+    {
+      "id": "holdout-04",
+      "group": "cardList",
+      "split": "holdout",
+      "difficulty": "easy",
+      "title": "결제 완료 카드",
+      "prompt": "결제 완료 화면에 들어갈 카드를 만들어줘. 결제가 완료됐다는 안내, 주문 번호, 결제 금액, 영수증 받기 버튼, 홈으로 가는 링크가 있어.",
+      "requirements": [
+        "완료 안내",
+        "주문 번호",
+        "결제 금액",
+        "영수증 버튼",
+        "홈 링크"
+      ],
+      "ruleIds": [
+        "CRD-01",
+        "CRD-02",
+        "CRD-05",
+        "BTN-01",
+        "BTN-08"
+      ]
+    },
+    {
+      "id": "holdout-05",
+      "group": "cardList",
+      "split": "holdout",
+      "difficulty": "easy",
+      "title": "프로젝트 빈 상태",
+      "prompt": "프로젝트 목록 화면에서 프로젝트가 하나도 없을 때 보여줄 빈 상태 화면을 만들어줘. 새 프로젝트를 바로 만들 수 있게 해줘.",
+      "requirements": [
+        "빈 상태 안내 문구",
+        "새 프로젝트 만들기 버튼"
+      ],
+      "ruleIds": [
+        "BTN-01",
+        "TYP-03",
+        "WRT-02",
+        "WRT-05",
+        "A11Y-07"
+      ]
+    }
+  ]
+}
