@@ -10,26 +10,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { PageHeader } from '@/features/landing/page-header'
-
-type DocStatus = 'done' | 'processing' | 'failed'
-type Doc = { name: string; status: DocStatus; chunks?: number; rules?: number; modified: string }
-
-const documents: Doc[] = [
-  { name: 'tokens.md', status: 'done', chunks: 11, rules: 12, modified: '9월 24일 오후 2:10' },
-  { name: 'button.md', status: 'done', chunks: 8, rules: 9, modified: '9월 24일 오후 2:10' },
-  { name: 'form.md', status: 'processing', modified: '방금 전' },
-  { name: 'card.md', status: 'done', chunks: 7, rules: 7, modified: '9월 24일 오후 2:11' },
-  { name: 'navigation.md', status: 'done', chunks: 8, rules: 7, modified: '9월 24일 오후 2:11' },
-  { name: 'modal.md', status: 'done', chunks: 6, rules: 7, modified: '9월 24일 오후 2:11' },
-  { name: 'accessibility.md', status: 'failed', modified: '9월 24일 오후 2:12' },
-  { name: 'writing.md', status: 'done', chunks: 9, rules: 7, modified: '9월 24일 오후 2:12' },
-]
-
-const chunkRows = [
-  { path: 'Button > Variant 선택 기준', tokens: 412, text: ['Primary는 주요 작업에 사용해요.', 'Secondary는 보조 작업에 사용해요.', '한 영역에 Primary 버튼은 하나만 둬요.'], rules: ['BTN-01', 'BTN-03'] },
-  { path: 'Button > Size', tokens: 288, text: ['기본 버튼 높이는 44px이에요.', '밀도 높은 도구 모음에서는 작은 크기를 사용해요.', '아이콘만 있는 버튼에는 레이블을 제공해요.'], rules: ['BTN-07'] },
-  { path: 'Button > Accessibility', tokens: 196, text: ['모든 버튼에는 명시적인 type이 있어야 해요.', '포커스 링은 키보드 사용자에게 보여야 해요.', '아이콘 옆 텍스트는 중복되지 않게 해요.'], rules: ['A11Y-02', 'A11Y-04'] },
-]
+import { chunkRows, documents, type Doc, type DocStatus } from '@/mocks/guides'
 
 function StatusBadge({ status }: { status: DocStatus }) {
   if (status === 'done') return <span className="inline-flex items-center gap-1.5 rounded-full border border-line px-2 py-1 text-sm text-success-700"><Check aria-hidden="true" className="size-4" />처리 완료</span>

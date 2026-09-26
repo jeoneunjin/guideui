@@ -54,11 +54,12 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
 
 ## 현재 상태 (여기부터 이어서)
 - STAGE 0 완료. STAGE 1 진행 중. Vercel 배포 연결 완료.
-- 폴더 구조 정리 (#8) 1차 PR(#77, 화면 파일을 features/*로, app-shell을 components/layout으로 이동)은 `Refs #8`로 머지 완료.
-  - 머지된 커밋에 버그 발견: `app/page.tsx`, `app/guides/page.tsx`, `app/search/page.tsx`가 옮기기 전 경로(`@/components/*-page`)를 계속 import하고 있어서 `npx tsc --noEmit`에서 모듈을 못 찾는 에러 3건 발생.
-    (`next.config`의 `ignoreBuildErrors` 때문에 `npm run build`는 통과해서 못 걸러졌다.)
-  - 지금 브랜치 `fix/8-app-import-paths`에서 이 3개 파일 import 경로를 `features/*`로 고치는 PR 진행 중 (`Refs #8`).
-  - 이 PR 다음: workspace.tsx 쪼개기, mocks/ 분리 (#8 남은 항목), 그리고 아래 타입 에러 5개 수정.
+- 폴더 구조 정리 이슈(#8) 관련 PR 4개:
+  - PR #77 (화면 파일을 features/*로, app-shell을 components/layout으로 이동) — 머지 완료.
+  - PR #78 (머지 후 발견된 버그 수정: app/*.tsx가 옮기기 전 경로 `@/components/*-page`를 계속 import하던 것을 `features/*`로 수정) — 머지 완료.
+  - PR #79 (workspace.tsx를 Chat/Editor/Preview로 분리, mocks/ 디렉토리 도입해 화면별 목업 데이터 이동) — 생성됨, `Closes #8`, 머지 대기 중.
+    - "안 쓰는 shadcn 컴포넌트·패키지 제거" 항목은 확인 결과 해당 없음: `components/ui/*` 9개 컴포넌트, `cn` 패키지(주의: `lib/utils.ts`의 자체 `cn()` 함수와는 별개로 shadcn 컴포넌트들이 npm 패키지 `cn`을 `from "cn"`으로 직접 import함) 전부 실제 사용 중.
+  - PR #79 머지되면 이슈 #8은 닫힘. 다음은 아래 타입 에러 5개 수정.
 - `npx tsc --noEmit`에서 타입 에러 5개. 이동 때문이 아니라 v0 원본 코드에 있던 문제다
   (next.config에 ignoreBuildErrors 설정이 있어서 빌드가 통과했을 가능성 확인 필요):
   1. `features/guides/guides-page.tsx` — 하위 컴포넌트에서 `fileRef` 참조 (스코프 밖, 2건)
