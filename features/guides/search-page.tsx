@@ -3,11 +3,11 @@
 import { FormEvent, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight, Search } from 'lucide-react'
-import { AppShell } from '@/components/app-shell'
+import { AppShell } from '@/components/layout/app-shell'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { PageHeader } from '@/components/page-header'
+import { PageHeader } from '@/features/landing/page-header'
 
 type SearchState = 'initial' | 'loading' | 'streaming' | 'no-result' | 'error' | 'result'
 

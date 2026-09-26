@@ -1,4 +1,4 @@
-import { Workspace } from '@/components/workspace'
+import { Workspace } from '@/features/workspace/workspace'
 
 export default async function WorkspaceRoute({ searchParams }: { searchParams: Promise<{ state?: string }> }) {
   const params = await searchParams
