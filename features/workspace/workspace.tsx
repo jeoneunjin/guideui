@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Copy, Download, RotateCcw, Send, Square } from 'lucide-react'
-import { AppShell } from '@/components/app-shell'
+import { AppShell } from '@/components/layout/app-shell'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'

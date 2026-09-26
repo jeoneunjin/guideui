@@ -2,14 +2,14 @@
 
 import { useMemo, useRef, useState } from 'react'
 import { AlertCircle, Check, ChevronRight, FileText, Loader2, Trash2, Upload, X } from 'lucide-react'
-import { AppShell } from '@/components/app-shell'
+import { AppShell } from '@/components/layout/app-shell'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Progress } from '@/components/ui/progress'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
-import { PageHeader } from '@/components/page-header'
+import { PageHeader } from '@/features/landing/page-header'
 
 type DocStatus = 'done' | 'processing' | 'failed'
 type Doc = { name: string; status: DocStatus; chunks?: number; rules?: number; modified: string }
