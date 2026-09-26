@@ -41,6 +41,10 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   - `features/{landing,workspace,chat,editor,preview,a11y,guides}/`
   - `mocks/` 화면별 목업 데이터
   - `lib/` 공통 유틸
+- 디자인 토큰 소스는 `sample-guide/tokens.ts`(Sample DS 스펙, RAG·eval 채점 기준)와
+  `lib/app-tokens.ts`(GuideUI 서비스 전용, 예: code-bg/fg) 두 개다. 값을 바꾸면
+  `npm run tokens:sync`로 `app/globals.css`를 재생성하고, 커밋 전 `npm run tokens:check`로
+  어긋남이 없는지 확인한다. `globals.css`의 `AUTO-GENERATED` 블록은 직접 손으로 고치지 않는다.
 
 ## 작업 흐름 (이슈 1개 = 브랜치 1개 = PR 1개)
 1. `git switch main && git pull`
@@ -53,22 +57,34 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
 - 커밋 전 `npx tsc --noEmit`, `npm run build` 확인.
 
 ## 현재 상태 (여기부터 이어서)
-- STAGE 0 완료. STAGE 1 진행 중. Vercel 배포 연결 완료.
-- 폴더 구조 정리 이슈(#8) 관련 PR 4개:
-  - PR #77 (화면 파일을 features/*로, app-shell을 components/layout으로 이동) — 머지 완료.
-  - PR #78 (머지 후 발견된 버그 수정: app/*.tsx가 옮기기 전 경로 `@/components/*-page`를 계속 import하던 것을 `features/*`로 수정) — 머지 완료.
-  - PR #79 (workspace.tsx를 Chat/Editor/Preview로 분리, mocks/ 디렉토리 도입해 화면별 목업 데이터 이동) — 생성됨, `Closes #8`, 머지 대기 중.
-    - "안 쓰는 shadcn 컴포넌트·패키지 제거" 항목은 확인 결과 해당 없음: `components/ui/*` 9개 컴포넌트, `cn` 패키지(주의: `lib/utils.ts`의 자체 `cn()` 함수와는 별개로 shadcn 컴포넌트들이 npm 패키지 `cn`을 `from "cn"`으로 직접 import함) 전부 실제 사용 중.
-  - PR #79 머지되면 이슈 #8은 닫힘. 다음은 아래 타입 에러 5개 수정.
-- `npx tsc --noEmit`에서 타입 에러 5개. 이동 때문이 아니라 v0 원본 코드에 있던 문제다
-  (next.config에 ignoreBuildErrors 설정이 있어서 빌드가 통과했을 가능성 확인 필요):
-  1. `features/guides/guides-page.tsx` — 하위 컴포넌트에서 `fileRef` 참조 (스코프 밖, 2건)
-  2. `features/guides/search-page.tsx` — state 타입에 없는 `'loading'`, `'empty'` 비교 (2건)
-  3. `features/workspace/workspace.tsx` — `ResizablePanelGroup`에 `direction` prop 타입 오류
-     (react-resizable-panels 버전과 shadcn resizable 컴포넌트 API 불일치 가능성)
-  → 별도 이슈/브랜치(`fix/…-type-errors`)에서 고치고, 고친 뒤 ignoreBuildErrors를 끈다.
+- STAGE 0 완료. STAGE 1 진행 중 (마일스톤 이슈 11개 중 5개 닫힘: #7, #8, #9, #17, #80).
+- 완료:
+  - #7 v0 목업 원본 가져오기 — 첫 커밋(91470dd)으로 이미 들어와 있었고 계속 잘 동작해서 닫음.
+  - #8 폴더 구조 정리 — 화면 파일 features/*로, app-shell을 components/layout으로 이동(PR #77),
+    이동 후 깨진 import 경로 수정(PR #78), workspace.tsx를 Chat/Editor/Preview로 분리 +
+    mocks/ 디렉토리 도입(PR #79). "안 쓰는 shadcn 컴포넌트·패키지 제거" 항목은 확인 결과
+    해당 없음(전부 실사용 중)으로 완료 처리.
+  - #80 v0 원본 타입 에러 5개 수정(PR #81) — guides-page의 `fileRef` 스코프 버그,
+    search-page의 존재하지 않는 state 값 비교, workspace의 `react-resizable-panels` v4
+    `direction`→`orientation` 이름 변경 + 패널 사이즈 px/% 이슈. `next.config`의
+    `ignoreBuildErrors`도 제거해서 이제 `npm run build`가 타입 에러도 잡는다.
+  - #9 디자인 토큰 단일 소스화(PR #83) — `sample-guide/tokens.ts`/`lib/app-tokens.ts`를
+    소스로 `npm run tokens:sync`가 `globals.css`를 생성. shadcn 기본 변수 16개를
+    Sample DS 토큰에 연결(`--primary: var(--brand-600)` 등). OS 다크 모드에 따라
+    shadcn 변수만 자동으로 깨지던 `@media (prefers-color-scheme: dark)` 블록 제거,
+    라이트 전용으로 고정. Pretendard 웹폰트 실제 로딩은 후속 이슈 #82로 분리.
+  - #17 Vercel 배포 및 PR 프리뷰 배포 연결 — GitHub 연동으로 Production/Preview 둘 다
+    이미 자동 연결돼 있어서 닫음.
+- 진행 중(부분 완료): #10 화면 상태를 props 기반으로 정리 — `app/workspace`, `app/guides`,
+  `app/search` 라우트가 `searchParams`의 `state`를 읽어 각 feature 컴포넌트에 prop으로
+  넘기는 구조는 이미 돼 있음. 남은 건 프로덕션 빌드에서 `?state=` 쿼리를 무시하게 막는 것.
+- 아직 시작 안 함: #11 env Zod 검증(`lib/env.ts`), #12 Supabase 프로젝트·초기 마이그레이션,
+  #13 Zustand `workspaceStore` 뼈대, #14 Provider 구성(TanStack Query), #15 Playwright + axe
+  접근성 기준선 테스트, #16 디자인 기록 정리(`docs/v0-prompts.md`는 이미 있음, `docs/design`
+  스크린샷은 아직).
+- 후속으로 미뤄둔 것: #82 Pretendard 웹폰트 실제 로딩(next/font) — STAGE 1 필수는 아님.
 
 ## STAGE 1 남은 순서
-폴더 구조 정리 → 타입 에러 수정 → 디자인 토큰 단일 소스화(tokens.ts ↔ globals.css @theme) →
-화면 state props화 + `?state=` 개발 전용 → Provider + Zustand 스토어 뼈대 → env Zod 검증 →
-Supabase 초기 마이그레이션 → Playwright + axe 기준선 테스트 → 디자인 기록
+~~폴더 구조 정리~~ → ~~타입 에러 수정~~ → ~~디자인 토큰 단일 소스화~~ →
+#10 마무리(`?state=` 프로덕션 비활성화) → #13/#14 Provider + Zustand 스토어 뼈대 →
+#11 env Zod 검증 → #12 Supabase 초기 마이그레이션 → #15 Playwright + axe 기준선 테스트 → #16 디자인 기록
