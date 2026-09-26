@@ -7,8 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { cn } from '@/lib/utils'
-
-const code = [`export default function GeneratedComponent() {`,`  return (`,`    <form className="flex flex-col gap-4">`,`      <h3 className="text-lg font-bold text-fg-primary">로그인</h3>`,`      <div className="flex flex-col gap-2">`,`        <label htmlFor="email" className="text-sm font-medium">이메일</label>`,`        <input id="email" type="email" autoComplete="email" placeholder="예: name@example.com" className="h-11 rounded-input border border-line-input px-3" />`,`      </div>`,`      <div className="flex flex-col gap-2">`,`        <label htmlFor="password" className="text-sm font-medium">비밀번호</label>`,`        <input id="password" type="password" autoComplete="current-password" className="h-11 rounded-input border border-line-input px-3" />`,`      </div>`,`      <label className="flex items-center gap-2 text-sm">`,`        <input type="checkbox" className="h-4 w-4 accent-brand-600" />`,`        로그인 상태 유지`,`      </label>`,`      <button type="submit" className="h-11 rounded-button bg-brand-600 font-medium text-fg-inverse">로그인</button>`,`    </form>`,`  );`,`}`]
+import { code } from '@/mocks/workspace'
 
 export function Workspace({ initialState = 'done' }: { initialState?: string }) {
   const state = ['empty', 'streaming', 'done', 'fixed', 'error'].includes(initialState) ? initialState : 'done'
