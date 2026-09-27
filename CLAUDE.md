@@ -47,12 +47,11 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   어긋남이 없는지 확인한다. `globals.css`의 `AUTO-GENERATED` 블록은 직접 손으로 고치지 않는다.
 
 ## 작업 흐름 (이슈 1개 = 브랜치 1개 = PR 1개)
-1. `git switch main && git pull`
-2. `git switch -c 종류/이슈번호-설명` (종류: feat, refactor, chore, test, docs, fix)
-3. 작업 → `git add -A` → `git commit -m "종류: 설명"`
-4. `git push -u origin 브랜치` → `gh pr create --title "..." --body "Closes #번호"`
-   - 이슈 작업의 일부만 끝낸 PR은 `Refs #번호`, 마지막 PR에서 `Closes #번호`
-5. Vercel 프리뷰 확인 → `gh pr merge --squash --delete-branch` → `git switch main && git pull`
+요약만 적는다. 실제로 브랜치 만들기/PR 올리기/머지하기를 진행할 때는 `.claude/skills/ship/SKILL.md`
+절차(잔실수 방지 포함: next-env.d.ts 되돌리기, squash 머지 후 `git branch -D` 등)를 따른다.
+1. `git switch main && git pull` → `git switch -c 종류/이슈번호-설명` (종류: feat, refactor, chore, test, docs, fix)
+2. 작업 → 커밋 → `git push -u origin 브랜치` → `gh pr create` (`Closes #번호` 또는 부분 완료면 `Refs #번호`)
+3. Vercel 프리뷰를 사용자가 확인할 때까지 머지하지 않는다 → 확인되면 `gh pr merge --squash --delete-branch` → 로컬 정리
 - 한 PR에서 파일 이동과 코드 수정을 섞지 않는다.
 - 커밋 전 `npx tsc --noEmit`, `npm run build` 확인.
 
