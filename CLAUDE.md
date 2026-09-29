@@ -56,7 +56,7 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
 - 커밋 전 `npx tsc --noEmit`, `npm run build` 확인.
 
 ## 현재 상태 (여기부터 이어서)
-- STAGE 0 완료. STAGE 1 진행 중 (마일스톤 이슈 13개 중 11개 닫힘: #7, #8, #9, #10, #11, #12, #13, #14, #15, #17, #80).
+- STAGE 0·STAGE 1 완료. STAGE 1 마일스톤 닫힘 (이슈 13개 전부: #7, #8, #9, #10, #11, #12, #13, #14, #15, #16, #17, #80, #82).
 - 완료(간단 요약, 자세한 배경은 git log/PR 참고):
   - #7 v0 목업 가져오기, #8 폴더 구조 정리(features/*, mocks/), #17 Vercel 배포 연결 — 이미 돼 있던 걸 확인만 하고 닫음.
   - #80 v0 원본 타입 에러 5개 수정 + `next.config`의 `ignoreBuildErrors` 제거.
@@ -88,18 +88,21 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
     환경 대상 테스트가 아님. `.github/workflows/a11y.yml`이 PR·main 푸시마다 실행. 검사 중 실제
     위반 5건(코드 패널 대비, 스위치 접근 가능한 이름, 리사이즈 핸들 aria-valuenow, 인용 링크 구분 수단)을
     찾아 같이 고침. 데스크톱 뷰포트만, 클릭으로 여는 다이얼로그는 범위 밖(후속 과제로 남김).
-- 아직 시작 안 함: #16 디자인 기록 정리(`docs/v0-prompts.md`는 이미 있음, `docs/design` 스크린샷은 아직).
-- 후속으로 미뤄둔 것: #82 Pretendard 웹폰트 실제 로딩(next/font) — STAGE 1 필수는 아님.
-  모바일 뷰포트 접근성 검사, 클릭으로 여는 다이얼로그(참고한 가이드/삭제 확인) 접근성 검사도
-  #15에서 의도적으로 범위 밖으로 뺐음 — 필요해지면 별도 이슈로.
+  - #16 디자인 기록 정리 — `docs/design/`에 랜딩·워크스페이스(done)·가이드 검색(result)·
+    가이드 관리(default) 4개 화면 스크린샷, `scripts/capture-design-screenshots.mjs` +
+    `npm run design:screenshots`로 재생성 가능. `docs/v0-prompts.md`는 그대로 둠(이미 있던 문서).
+  - #82 Pretendard·JetBrains Mono 웹폰트 실제 로딩 — `lib/fonts.ts`에서 `next/font/local`(pretendard
+    npm 패키지) + `next/font/google`(JetBrains Mono)로 셀프호스팅, `<html>`에 CSS 변수로 주입.
+    `app/globals.css`의 `AUTO-GENERATED` 블록은 그대로 두고 그 아래에 `--font-sans`/`--font-mono`를
+    재선언해서 next/font 변수를 우선 사용하게 함(같은 `@theme` 규칙 안에서 나중 선언이 이기는 특성 이용).
+    `tokens.ts`/`sync-tokens.mjs`는 안 건드림.
+- 후속 과제로 남은 것(별도 이슈로 만들 것): 모바일 뷰포트 접근성 검사, 클릭으로 여는 다이얼로그
+  (참고한 가이드/삭제 확인) 접근성 검사 — #15에서 의도적으로 범위 밖으로 뺐음.
 - 알아두면 좋은 것: `app/layout.tsx`의 `viewport.colorScheme`/`themeColor`가 여전히
   라이트/다크 둘 다 선언돼 있어서(#9에서 CSS만 라이트로 고정함) 브라우저 UI 색상 힌트가
-  실제 화면과 안 맞을 수 있음 — 디자인 기록(#16) 정리할 때 같이 보면 됨.
+  실제 화면과 안 맞을 수 있음 — 아직 안 고쳐짐, 필요해지면 별도 이슈로.
 - CLAUDE.md 폴더 구조 목록의 `features/{...,chat,editor,preview,...}`는 실제로는
   `features/workspace/{chat,editor,preview}.tsx`로 workspace 하위에 있음(#79에서 그렇게
   정리함) — 이 문서 표기가 약간 stale함, 다음 문서 정리 때 고칠 것.
-
-## STAGE 1 남은 순서
-~~폴더 구조 정리~~ → ~~타입 에러 수정~~ → ~~디자인 토큰 단일 소스화~~ → ~~화면 상태 props화~~ →
-~~Provider + Zustand 스토어 뼈대~~ → ~~env Zod 검증~~ → ~~Supabase 초기 마이그레이션~~ →
-~~Playwright + axe 기준선 테스트~~ → #16 디자인 기록
+- 다음: STAGE 2 이슈는 아직 마일스톤에 없음. `docs/GuideUI_기획_및_구현계획서.pdf`의 STAGE 2 범위를
+  참고해서 이슈부터 만들 것.
