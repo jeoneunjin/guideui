@@ -25,7 +25,7 @@ export function AppShell({ activeNav = '워크스페이스', children }: { activ
       </SelectTrigger>
       <SelectContent><SelectItem value="sample">가이드: Sample DS</SelectItem></SelectContent>
     </Select>
-    <label className="flex items-center gap-2 text-sm text-fg-secondary"><Switch checked={guideEnabled} onCheckedChange={setGuideEnabled} /><span>가이드 적용</span><span className="text-fg-muted">{guideEnabled ? '켜짐' : '꺼짐'}</span></label>
+    <label className="flex items-center gap-2 text-sm text-fg-secondary"><Switch aria-label="가이드 적용" checked={guideEnabled} onCheckedChange={setGuideEnabled} /><span>가이드 적용</span><span className="text-fg-muted">{guideEnabled ? '켜짐' : '꺼짐'}</span></label>
   </div>
   return <div className="flex min-h-screen flex-col bg-surface-subtle text-fg-primary">
     <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between border-b border-line bg-surface px-4 lg:px-6">
