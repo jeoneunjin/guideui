@@ -56,8 +56,12 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
 - 커밋 전 `npx tsc --noEmit`, `npm run build` 확인.
 
 ## 현재 상태 (여기부터 이어서)
-- STAGE 0 완료. STAGE 1 진행 중 (마일스톤 이슈 11개 중 5개 닫힘: #7, #8, #9, #17, #80).
+- STAGE 0 완료. STAGE 1 진행 중 (마일스톤 이슈 11개 중 6개 닫힘: #7, #8, #9, #10, #17, #80).
 - 완료:
+  - #10 화면 상태를 props 기반으로 정리 — `app/workspace`, `app/guides`, `app/search` 라우트가
+    `searchParams`의 `state`를 읽어 각 feature 컴포넌트에 prop으로 넘기는 구조에 더해,
+    `lib/dev-state.ts`의 `resolveDevState()`로 `NODE_ENV !== 'development'`면 쿼리를
+    무시하게 막음 (Vercel Preview/Production 포함, next dev에서만 동작).
   - #7 v0 목업 원본 가져오기 — 첫 커밋(91470dd)으로 이미 들어와 있었고 계속 잘 동작해서 닫음.
   - #8 폴더 구조 정리 — 화면 파일 features/*로, app-shell을 components/layout으로 이동(PR #77),
     이동 후 깨진 import 경로 수정(PR #78), workspace.tsx를 Chat/Editor/Preview로 분리 +
@@ -74,9 +78,6 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
     라이트 전용으로 고정. Pretendard 웹폰트 실제 로딩은 후속 이슈 #82로 분리.
   - #17 Vercel 배포 및 PR 프리뷰 배포 연결 — GitHub 연동으로 Production/Preview 둘 다
     이미 자동 연결돼 있어서 닫음.
-- 진행 중(부분 완료): #10 화면 상태를 props 기반으로 정리 — `app/workspace`, `app/guides`,
-  `app/search` 라우트가 `searchParams`의 `state`를 읽어 각 feature 컴포넌트에 prop으로
-  넘기는 구조는 이미 돼 있음. 남은 건 프로덕션 빌드에서 `?state=` 쿼리를 무시하게 막는 것.
 - 아직 시작 안 함: #11 env Zod 검증(`lib/env.ts`), #12 Supabase 프로젝트·초기 마이그레이션,
   #13 Zustand `workspaceStore` 뼈대, #14 Provider 구성(TanStack Query), #15 Playwright + axe
   접근성 기준선 테스트, #16 디자인 기록 정리(`docs/v0-prompts.md`는 이미 있음, `docs/design`
@@ -84,6 +85,6 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
 - 후속으로 미뤄둔 것: #82 Pretendard 웹폰트 실제 로딩(next/font) — STAGE 1 필수는 아님.
 
 ## STAGE 1 남은 순서
-~~폴더 구조 정리~~ → ~~타입 에러 수정~~ → ~~디자인 토큰 단일 소스화~~ →
-#10 마무리(`?state=` 프로덕션 비활성화) → #13/#14 Provider + Zustand 스토어 뼈대 →
-#11 env Zod 검증 → #12 Supabase 초기 마이그레이션 → #15 Playwright + axe 기준선 테스트 → #16 디자인 기록
+~~폴더 구조 정리~~ → ~~타입 에러 수정~~ → ~~디자인 토큰 단일 소스화~~ → ~~화면 상태 props화~~ →
+#13/#14 Provider + Zustand 스토어 뼈대 → #11 env Zod 검증 → #12 Supabase 초기 마이그레이션 →
+#15 Playwright + axe 기준선 테스트 → #16 디자인 기록
