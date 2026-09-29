@@ -3,7 +3,11 @@ import { z } from 'zod'
 const envSchema = z
   .object({
     LLM_PROVIDER: z.enum(['mock', 'gemini', 'anthropic']).default('mock'),
-    GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1).optional(),
+    GOOGLE_GENERATIVE_AI_API_KEY: z
+      .string()
+      .transform((v) => v.trim())
+      .pipe(z.string().min(1))
+      .optional(),
   })
   .superRefine((val, ctx) => {
     if (val.LLM_PROVIDER === 'gemini' && !val.GOOGLE_GENERATIVE_AI_API_KEY) {
