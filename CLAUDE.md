@@ -56,7 +56,7 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
 - 커밋 전 `npx tsc --noEmit`, `npm run build` 확인.
 
 ## 현재 상태 (여기부터 이어서)
-- STAGE 0 완료. STAGE 1 진행 중 (마일스톤 이슈 13개 중 9개 닫힘: #7, #8, #9, #10, #11, #13, #14, #17, #80).
+- STAGE 0 완료. STAGE 1 진행 중 (마일스톤 이슈 13개 중 10개 닫힘: #7, #8, #9, #10, #11, #12, #13, #14, #17, #80).
 - 완료(간단 요약, 자세한 배경은 git log/PR 참고):
   - #7 v0 목업 가져오기, #8 폴더 구조 정리(features/*, mocks/), #17 Vercel 배포 연결 — 이미 돼 있던 걸 확인만 하고 닫음.
   - #80 v0 원본 타입 에러 5개 수정 + `next.config`의 `ignoreBuildErrors` 제거.
@@ -74,8 +74,15 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
     `GOOGLE_GENERATIVE_AI_API_KEY`(gemini일 때만 필수) 검증. `.env.example` 추가.
     anthropic용 키는 아직 안 씀(변수명도 안 정해짐)이라 검증 대상 아님. 아직 이 값을 실제로
     쓰는 코드가 없어서 어디서도 import 안 함 — STAGE 4 생성 로직 붙을 때 연결.
-- 아직 시작 안 함: #12 Supabase 프로젝트·초기 마이그레이션,
-  #15 Playwright + axe 접근성 기준선 테스트, #16 디자인 기록 정리(`docs/v0-prompts.md`는
+  - #12 Supabase 프로젝트 생성 및 초기 마이그레이션 — `supabase` CLI를 devDependency로 추가,
+    `supabase/migrations/`에 기획서 5.4절 스키마(vector 확장 + 7개 테이블: sessions, messages,
+    component_versions, guide_sets, guide_documents, guide_chunks, usage_logs)를 작성해 실제
+    Supabase 프로젝트(project ref `gbjxtcyvsuxorrykzwhc`)에 `supabase db push`로 적용함.
+    `guide_chunks.embedding`은 `vector(768)`(Gemini `text-embedding-004` 기준, 모델 바뀌면 전체
+    재임베딩 필요). `lib/supabase/client.ts`나 `lib/env.ts`의 Supabase 키 검증, RLS 정책,
+    `match_guide_chunks` 함수는 아직 안 만듦 — 실제로 이 DB를 쓰는 코드가 생기는 STAGE 4/5에서
+    같이 연결 예정.
+- 아직 시작 안 함: #15 Playwright + axe 접근성 기준선 테스트, #16 디자인 기록 정리(`docs/v0-prompts.md`는
   이미 있음, `docs/design` 스크린샷은 아직).
 - 후속으로 미뤄둔 것: #82 Pretendard 웹폰트 실제 로딩(next/font) — STAGE 1 필수는 아님.
 - 알아두면 좋은 것: `app/layout.tsx`의 `viewport.colorScheme`/`themeColor`가 여전히
@@ -87,5 +94,5 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
 
 ## STAGE 1 남은 순서
 ~~폴더 구조 정리~~ → ~~타입 에러 수정~~ → ~~디자인 토큰 단일 소스화~~ → ~~화면 상태 props화~~ →
-~~Provider + Zustand 스토어 뼈대~~ → ~~env Zod 검증~~ → #12 Supabase 초기 마이그레이션 →
+~~Provider + Zustand 스토어 뼈대~~ → ~~env Zod 검증~~ → ~~Supabase 초기 마이그레이션~~ →
 #15 Playwright + axe 기준선 테스트 → #16 디자인 기록
