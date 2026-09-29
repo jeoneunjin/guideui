@@ -15,6 +15,9 @@ for (const { path, states } of targets) {
     const url = state ? `${path}?state=${state}` : path
     test(`a11y violations: ${url}`, async ({ page }) => {
       await page.goto(url)
+      // react-resizable-panels sets aria-valuenow on separators after an initial layout
+      // effect, not on first paint — wait for it so axe doesn't race a transient state.
+      await page.waitForFunction(() => document.querySelectorAll('[role="separator"]:not([aria-valuenow])').length === 0)
       const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
       expect(results.violations).toEqual([])
     })
