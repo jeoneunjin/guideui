@@ -38,7 +38,7 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   - `app/` 라우트만 (page.tsx는 searchParams 읽고 feature 조립)
   - `components/ui/` shadcn 기본 컴포넌트 (경로 변경 금지)
   - `components/layout/` 여러 화면이 공유하는 틀 (app-shell 등)
-  - `features/{landing,workspace,chat,editor,preview,a11y,guides}/`
+  - `features/{landing,workspace,a11y,guides}/` (chat/editor/preview는 `features/workspace/` 하위 파일)
   - `mocks/` 화면별 목업 데이터
   - `lib/` 공통 유틸
 - 디자인 토큰 소스는 `sample-guide/tokens.ts`(Sample DS 스펙, RAG·eval 채점 기준)와
@@ -101,8 +101,5 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
 - 알아두면 좋은 것: `app/layout.tsx`의 `viewport.colorScheme`/`themeColor`가 여전히
   라이트/다크 둘 다 선언돼 있어서(#9에서 CSS만 라이트로 고정함) 브라우저 UI 색상 힌트가
   실제 화면과 안 맞을 수 있음 — 아직 안 고쳐짐, 필요해지면 별도 이슈로.
-- CLAUDE.md 폴더 구조 목록의 `features/{...,chat,editor,preview,...}`는 실제로는
-  `features/workspace/{chat,editor,preview}.tsx`로 workspace 하위에 있음(#79에서 그렇게
-  정리함) — 이 문서 표기가 약간 stale함, 다음 문서 정리 때 고칠 것.
-- 다음: STAGE 2 이슈는 아직 마일스톤에 없음. `docs/GuideUI_기획_및_구현계획서.pdf`의 STAGE 2 범위를
-  참고해서 이슈부터 만들 것.
+- 다음: STAGE 2 이슈 9개(#18~#26)가 마일스톤에 이미 만들어져 있고, 기획서 STAGE 2 할일을 전부
+  커버함(1:1 매핑 확인됨). `.claude/skills/ship/SKILL.md` 절차로 #18부터 순서대로 시작하면 됨.
