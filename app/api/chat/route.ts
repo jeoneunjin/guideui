@@ -30,11 +30,15 @@ export async function POST(req: Request) {
   }
 
   const { messages, currentCode } = parsed.data
-  const { text } = await generateText({
-    model: getGenerationModel(),
-    system: buildGenerateSystemPrompt({ currentCode }),
-    messages,
-  })
-
-  return NextResponse.json({ text })
+  try {
+    const { text } = await generateText({
+      model: getGenerationModel(),
+      system: buildGenerateSystemPrompt({ currentCode }),
+      messages,
+    })
+    return NextResponse.json({ text })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했어요.'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }
