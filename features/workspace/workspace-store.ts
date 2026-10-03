@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { code as defaultCode } from '@/mocks/workspace'
 
 /**
  * 워크스페이스 생성 파이프라인의 진행 상태.
@@ -28,11 +29,17 @@ export type WorkspaceStatus =
 interface WorkspaceState {
   status: WorkspaceStatus
   setStatus: (status: WorkspaceStatus) => void
+  code: string
+  setCode: (code: string) => void
   reset: () => void
 }
+
+const INITIAL_CODE = defaultCode.join('\n')
 
 export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   status: 'idle',
   setStatus: (status) => set({ status }),
-  reset: () => set({ status: 'idle' }),
+  code: INITIAL_CODE,
+  setCode: (code) => set({ code }),
+  reset: () => set({ status: 'idle', code: INITIAL_CODE }),
 }))
