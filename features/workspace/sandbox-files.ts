@@ -1,7 +1,9 @@
 import { tailwindExtend } from '@/sample-guide/tokens'
+import { SANDBOX_COMPONENT_FILES } from './sandbox-components'
 
 export function buildSandboxFiles(code: string): Record<string, string> {
   return {
+    ...SANDBOX_COMPONENT_FILES,
     '/App.tsx': `import GeneratedComponent from './GeneratedComponent'
 
 export default function App() {
