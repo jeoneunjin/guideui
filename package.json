@@ -14,6 +14,7 @@
     "design:screenshots": "node scripts/capture-design-screenshots.mjs"
   },
   "dependencies": {
+    "@babel/parser": "^7.29.9",
     "@base-ui/react": "^1.5.0",
     "@codesandbox/sandpack-react": "^2.20.0",
     "@tanstack/react-query": "^5.104.0",
