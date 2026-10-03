@@ -3,6 +3,9 @@ import { generateText } from 'ai'
 import { z } from 'zod'
 import { getGenerationModel } from '@/lib/llm'
 import { buildGenerateSystemPrompt } from '@/lib/generate-prompt'
+import { extractCode } from '@/lib/code/extract-code'
+import { validateImports } from '@/lib/code/validate-imports'
+import { ALLOWED_IMPORT_SOURCES } from '@/lib/code/allowed-imports'
 
 const ChatRequestSchema = z.object({
   messages: z
@@ -31,11 +34,35 @@ export async function POST(req: Request) {
 
   const { messages, currentCode } = parsed.data
   try {
-    const { text } = await generateText({
-      model: getGenerationModel(),
-      system: buildGenerateSystemPrompt({ currentCode }),
-      messages,
-    })
+    const callModel = (extra: { role: 'assistant' | 'user'; content: string }[] = []) =>
+      generateText({
+        model: getGenerationModel(),
+        system: buildGenerateSystemPrompt({ currentCode }),
+        messages: [...messages, ...extra],
+      })
+
+    let { text } = await callModel()
+    let result = validateImports(extractCode(text))
+
+    if (!result.valid) {
+      const feedback =
+        result.reason === 'disallowed-import'
+          ? `방금 생성한 코드가 허용되지 않은 import를 사용했어요: ${result.disallowed.join(', ')}. ${ALLOWED_IMPORT_SOURCES.join(', ')} 중에서만 import해서 다시 생성해 주세요.`
+          : '방금 생성한 코드에 문법 오류가 있어요. 다시 생성해 주세요.'
+      ;({ text } = await callModel([
+        { role: 'assistant', content: text },
+        { role: 'user', content: feedback },
+      ]))
+      result = validateImports(extractCode(text))
+    }
+
+    if (!result.valid) {
+      return NextResponse.json(
+        { error: '허용되지 않은 코드가 반복 생성됐어요. 다시 시도해 주세요.', reason: result.reason },
+        { status: 422 },
+      )
+    }
+
     return NextResponse.json({ text })
   } catch (error) {
     const message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했어요.'
