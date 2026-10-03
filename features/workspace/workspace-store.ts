@@ -26,11 +26,15 @@ export type WorkspaceStatus =
   | 'error'
   | 'aborted'
 
+export type ChatMessage = { role: 'user' | 'assistant'; content: string }
+
 interface WorkspaceState {
   status: WorkspaceStatus
   setStatus: (status: WorkspaceStatus) => void
   code: string
   setCode: (code: string) => void
+  messages: ChatMessage[]
+  addMessage: (message: ChatMessage) => void
   reset: () => void
 }
 
@@ -41,5 +45,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   setStatus: (status) => set({ status }),
   code: INITIAL_CODE,
   setCode: (code) => set({ code }),
-  reset: () => set({ status: 'idle', code: INITIAL_CODE }),
+  messages: [],
+  addMessage: (message) => set((s) => ({ messages: [...s.messages, message] })),
+  reset: () => set({ status: 'idle', code: INITIAL_CODE, messages: [] }),
 }))
