@@ -16,7 +16,7 @@ export function Chat() {
   const code = useWorkspaceStore((s) => s.code)
   const setCode = useWorkspaceStore((s) => s.setCode)
   const status = useWorkspaceStore((s) => s.status)
-  const setStatus = useWorkspaceStore((s) => s.setStatus)
+  const dispatch = useWorkspaceStore((s) => s.dispatch)
   const [requestText, setRequestText] = useState('')
   const [requestError, setRequestError] = useState<string | null>(null)
   const [streamingText, setStreamingText] = useState('')
@@ -25,7 +25,7 @@ export function Chat() {
 
   async function performRequest(messagesToSend: ChatMessage[]) {
     setRequestError(null)
-    setStatus('streaming')
+    dispatch('start')
     setStreamingText('')
     const controller = new AbortController()
     abortControllerRef.current = controller
@@ -39,7 +39,7 @@ export function Chat() {
       if (!res.ok) {
         const data = await res.json()
         setRequestError(typeof data.error === 'string' ? data.error : '요청을 처리하지 못했어요.')
-        setStatus('error')
+        dispatch('fail')
         return
       }
       const reader = res.body!.getReader()
@@ -56,13 +56,13 @@ export function Chat() {
       const explanation = (fenceIndex === -1 ? fullText : fullText.slice(0, fenceIndex)).trim()
       addMessage({ role: 'assistant', content: explanation || fullText })
       setCode(extractCode(fullText))
-      setStatus('done')
+      dispatch('finish')
     } catch {
       if (controller.signal.aborted) {
-        setStatus('aborted')
+        dispatch('abort')
       } else {
         setRequestError('응답을 받지 못했어요. 네트워크를 확인한 뒤 다시 시도해 주세요.')
-        setStatus('error')
+        dispatch('fail')
       }
     } finally {
       setStreamingText('')
