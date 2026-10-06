@@ -25,8 +25,12 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
 
 ## LLM 비용 결정
 - 유료 API는 쓰지 않는다. `LLM_PROVIDER=mock | gemini | anthropic` 환경 변수로 제공자를 바꿀 수 있게 설계한다.
-- STAGE 1~3: mock 모델(AI SDK 테스트용 모델 + 스트림 시뮬레이션)로 개발.
-- STAGE 4 이후: Gemini 무료 티어(생성 + 임베딩). 키는 `.env.local`의 `GOOGLE_GENERATIVE_AI_API_KEY`.
+- 기본값은 여전히 `mock`. STAGE 2(#26)에서 `lib/llm.ts`에 Gemini **생성** 분기만 예외적으로 먼저 연결함
+  (튜닝 프롬프트를 실제로 돌려봐야 했던 이슈라 사용자와 상의 후 최소로 당겨옴) — `@ai-sdk/google`,
+  모델은 `gemini-3.1-flash-lite`(무료 티어, 응답 3~5초대; `gemini-3.8-flash`는 이 글 작성 시점엔 수요
+  폭주로 60~100초씩 걸려서 실사용에 안 맞았음 — 모델 가용성은 계속 바뀌니 막히면 다시 확인). 임베딩
+  연결은 아직 없음, STAGE 5(#42)에서.
+- 키는 `.env.local`의 `GOOGLE_GENERATIVE_AI_API_KEY`.
 - pgvector 컬럼 차원은 실제 임베딩 모델 차원에 맞춘다. HNSW 인덱스는 2000차원 이하여야 한다.
 
 ## 코드 규칙
@@ -97,9 +101,44 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
     재선언해서 next/font 변수를 우선 사용하게 함(같은 `@theme` 규칙 안에서 나중 선언이 이기는 특성 이용).
     `tokens.ts`/`sync-tokens.mjs`는 안 건드림.
 - 후속 과제로 남은 것(별도 이슈로 만들 것): 모바일 뷰포트 접근성 검사, 클릭으로 여는 다이얼로그
-  (참고한 가이드/삭제 확인) 접근성 검사 — #15에서 의도적으로 범위 밖으로 뺐음.
+  (참고한 가이드/삭제 확인) 접근성 검사 — #15에서 의도적으로 범위 밖으로 뺐음. "참고한 가이드" 다이얼로그
+  자체는 #102에서 UI까지 제거했으니(아래 참고) 이 항목은 실질적으로 삭제 확인 모달류만 남음.
 - 알아두면 좋은 것: `app/layout.tsx`의 `viewport.colorScheme`/`themeColor`가 여전히
   라이트/다크 둘 다 선언돼 있어서(#9에서 CSS만 라이트로 고정함) 브라우저 UI 색상 힌트가
   실제 화면과 안 맞을 수 있음 — 아직 안 고쳐짐, 필요해지면 별도 이슈로.
-- 다음: STAGE 2 이슈 9개(#18~#26)가 마일스톤에 이미 만들어져 있고, 기획서 STAGE 2 할일을 전부
-  커버함(1:1 매핑 확인됨). `.claude/skills/ship/SKILL.md` 절차로 #18부터 순서대로 시작하면 됨.
+
+### STAGE 2 · 생성 코어·미리보기 완료 (이슈 10개: #18~#26, #102)
+비스트리밍으로 "프롬프트 → 코드 → 렌더" 전체 루프가 실제로 동작한다(목업 아님). 완료 기준
+(렌더 에러 없음, 허용 안 된 import 차단)을 실제 Gemini 모델로 검증 완료(#26).
+- #18 `/api/chat` 비스트리밍 — `generateText` + `lib/generate-prompt.ts`의 시스템 프롬프트.
+  `<guidelines></guidelines>`는 아직 빈 블록(RAG 주입은 #47).
+- #19 `extractCode` — 응답에서 첫 번째 \`\`\`tsx 펜스만 추출(`lib/code/extract-code.ts`).
+- #20·#21 Sandpack 미리보기 — `features/workspace/sandbox-files.ts`(Tailwind CDN + 토큰 config 주입),
+  `features/workspace/sandbox-components.ts`(Button/Input/Label/Card/Badge 5종 가상 파일, 샌드박스
+  안에선 외부 npm 패키지 못 씀). dev 모드에서만 React StrictMode 이중 마운트 때문에 Sandpack이 멈춰
+  보이는 알려진 제약 있음(프로덕션 빌드·Vercel은 영향 없음) — Sandpack 관련 확인은 `npm run build &&
+  npm start`로 하는 습관 들일 것.
+- #22 import 화이트리스트 검증 — `lib/code/validate-imports.ts`(@babel/parser로 AST 파싱) + `/api/chat`에서
+  위반 시 1회 자동 재생성, 그래도 안 되면 422.
+  화이트리스트는 `lib/code/allowed-imports.ts`에 상수로 분리(시스템 프롬프트 문구와 같은 소스 공유).
+- #23 미리보기 에러 UI — `useSandpack()`으로 컴파일/런타임 에러 직접 감지해서 커스텀 UI(Sandpack 기본
+  오버레이 끔). Sandpack이 일부 JSX 문법 오류를 TypeError로 한 번 더 감싸서 내보내는 경우가 있어
+  `error.title==='SyntaxError'`만으론 부족, `error.message` 포함 여부도 같이 봄.
+- #24 Monaco 에디터 연결 — `features/workspace/editor.tsx`. `language="typescript"` + `path`를 `.tsx`로
+  줘야 구문 강조와 JSX 파싱이 둘 다 됨(`language="typescriptreact"`는 Monarch 문법 자체가 없어서 구문
+  강조가 깨짐 — 한 번 겪은 실수). Sandpack `files` prop은 `code`에 반응하게 둬야 함 —
+  `sandpack.updateFile()`로 최적화하려 했다가 provider가 `status==='idle'`로 떨어진 뒤엔 그 호출이
+  조용히 무시되는 버그를 만들었음(실사용자가 "미리보기 반영 안 됨"으로 리포트해서 발견, #102 때 되돌림).
+- #25 코드 복사·다운로드 — `navigator.clipboard.writeText` + `Blob`+`<a download>`. 자동화 브라우저
+  환경에선 클립보드 쓰기 권한이 막혀서 복사 기능은 사람이 직접 확인해야 했음(표준 API라 실브라우저는 문제없음).
+- #26 Gemini 최소 연결 + 20개 프롬프트 실점검 — 위 "LLM 비용 결정" 참고. 결과: 20/20 출력 형식·import
+  화이트리스트 준수, `generate-prompt.ts` 변경 불필요. 단, 가이드 규칙이 아직 주입 안 돼서 생성 결과에
+  `bg-gray-50` 같은 임의 Tailwind 색상이 섞여 나옴 — RAG 붙는 #47에서 재확인 예정(메모리에 기록해둠).
+- #102(계획 중 발견한 공백, #24에서 분리) chat.tsx → `/api/chat` 실제 연결 — `workspace-store.ts`에
+  `messages`/`addMessage` 추가(모바일/데스크톱 두 `<Chat/>` 인스턴스가 항상 동시에 마운트돼 있어서 로컬
+  state로는 안 됨, 전부 store로). "참고한 가이드" 인용 칩/다이얼로그는 제거(실제 RAG 인용 데이터 없어서
+  가짜로 안 만듦, RAG 붙으면 다시 만들 것). `chat.tsx`의 textarea `id`가 두 인스턴스에 하드코딩 중복돼
+  있던 실제 a11y 버그를 발견해서 `useId()`로 고침.
+- 다음: STAGE 3 이슈 8개(#27~#34, 스트리밍 전환)가 마일스톤에 이미 만들어져 있음. `/api/chat`을
+  `streamText`로 바꾸는 #27이 나머지(#28 펜스 스트림 파서, #29 스트리밍 상태 머신, #30 editorCode/
+  previewCode 분리, #31 중단·재생성)의 기반이라 먼저 시작하는 게 자연스러움.
