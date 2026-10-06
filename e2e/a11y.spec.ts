@@ -28,10 +28,8 @@ test('a11y violations: /workspace 실제 전송 성공', async ({ page }) => {
   await page.route('**/api/chat', (route) =>
     route.fulfill({
       status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        text: '버튼을 만들었어요. [G1]\n\n```tsx\nexport default function GeneratedComponent() {\n  return <button type="button">확인</button>\n}\n```',
-      }),
+      contentType: 'text/plain; charset=utf-8',
+      body: '버튼을 만들었어요. [G1]\n\n```tsx\nexport default function GeneratedComponent() {\n  return <button type="button">확인</button>\n}\n```',
     }),
   )
   await page.goto('/workspace')

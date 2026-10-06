@@ -21,16 +21,31 @@ export default function GeneratedComponent() {
 \`\`\`
 `
 
+const MOCK_FINISH_REASON = { unified: 'stop', raw: undefined } as const
+const MOCK_USAGE = {
+  inputTokens: { total: undefined, noCache: undefined, cacheRead: undefined, cacheWrite: undefined },
+  outputTokens: { total: undefined, text: undefined, reasoning: undefined },
+} as const
+
 function createMockModel(): LanguageModel {
   return new MockLanguageModelV3({
     doGenerate: async () => ({
-      finishReason: { unified: 'stop', raw: undefined },
-      usage: {
-        inputTokens: { total: undefined, noCache: undefined, cacheRead: undefined, cacheWrite: undefined },
-        outputTokens: { total: undefined, text: undefined, reasoning: undefined },
-      },
+      finishReason: MOCK_FINISH_REASON,
+      usage: MOCK_USAGE,
       content: [{ type: 'text', text: MOCK_RESPONSE }],
       warnings: [],
+    }),
+    doStream: async () => ({
+      stream: new ReadableStream({
+        start(controller) {
+          controller.enqueue({ type: 'stream-start', warnings: [] })
+          controller.enqueue({ type: 'text-start', id: '1' })
+          controller.enqueue({ type: 'text-delta', id: '1', delta: MOCK_RESPONSE })
+          controller.enqueue({ type: 'text-end', id: '1' })
+          controller.enqueue({ type: 'finish', finishReason: MOCK_FINISH_REASON, usage: MOCK_USAGE })
+          controller.close()
+        },
+      }),
     }),
   })
 }
