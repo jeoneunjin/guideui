@@ -1,11 +1,27 @@
 import { NextResponse } from 'next/server'
-import { generateText } from 'ai'
+import { streamText } from 'ai'
 import { z } from 'zod'
 import { getGenerationModel } from '@/lib/llm'
 import { buildGenerateSystemPrompt } from '@/lib/generate-prompt'
 import { extractCode } from '@/lib/code/extract-code'
 import { validateImports } from '@/lib/code/validate-imports'
 import { ALLOWED_IMPORT_SOURCES } from '@/lib/code/allowed-imports'
+
+function toChunkedStream(text: string, signal: AbortSignal): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder()
+  const CHUNK_SIZE = 24
+  const DELAY_MS = 20
+  return new ReadableStream({
+    async start(controller) {
+      for (let i = 0; i < text.length; i += CHUNK_SIZE) {
+        if (signal.aborted) break
+        controller.enqueue(encoder.encode(text.slice(i, i + CHUNK_SIZE)))
+        await new Promise((resolve) => setTimeout(resolve, DELAY_MS))
+      }
+      controller.close()
+    },
+  })
+}
 
 const ChatRequestSchema = z.object({
   messages: z
@@ -35,13 +51,14 @@ export async function POST(req: Request) {
   const { messages, currentCode } = parsed.data
   try {
     const callModel = (extra: { role: 'assistant' | 'user'; content: string }[] = []) =>
-      generateText({
+      streamText({
         model: getGenerationModel(),
         system: buildGenerateSystemPrompt({ currentCode }),
         messages: [...messages, ...extra],
-      })
+        abortSignal: req.signal,
+      }).text
 
-    let { text } = await callModel()
+    let text = await callModel()
     let result = validateImports(extractCode(text))
 
     if (!result.valid) {
@@ -49,10 +66,10 @@ export async function POST(req: Request) {
         result.reason === 'disallowed-import'
           ? `방금 생성한 코드가 허용되지 않은 import를 사용했어요: ${result.disallowed.join(', ')}. ${ALLOWED_IMPORT_SOURCES.join(', ')} 중에서만 import해서 다시 생성해 주세요.`
           : '방금 생성한 코드에 문법 오류가 있어요. 다시 생성해 주세요.'
-      ;({ text } = await callModel([
+      text = await callModel([
         { role: 'assistant', content: text },
         { role: 'user', content: feedback },
-      ]))
+      ])
       result = validateImports(extractCode(text))
     }
 
@@ -63,8 +80,13 @@ export async function POST(req: Request) {
       )
     }
 
-    return NextResponse.json({ text })
+    return new Response(toChunkedStream(text, req.signal), {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    })
   } catch (error) {
+    if (req.signal.aborted) {
+      return new Response(null, { status: 204 })
+    }
     const message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했어요.'
     return NextResponse.json({ error: message }, { status: 500 })
   }
