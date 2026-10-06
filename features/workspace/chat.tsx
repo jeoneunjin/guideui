@@ -1,7 +1,64 @@
 'use client'
 
+import { useId, useState } from 'react'
 import { Send, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { cn } from '@/lib/utils'
+import { extractCode } from '@/lib/code/extract-code'
+import { useWorkspaceStore, type ChatMessage } from './workspace-store'
 
-export function Chat({empty,streaming,error,sent,setSent,guide,setGuide}:{empty:boolean;streaming:boolean;error:boolean;sent:boolean;setSent:(v:boolean)=>void;guide:string|null;setGuide:(v:string|null)=>void}) { return <aside aria-label="채팅" className="flex h-full min-h-0 flex-col bg-surface p-4"><div className="min-h-0 flex-1 overflow-y-auto"><div className="flex flex-col gap-4 text-sm">{empty&&!sent?<p className="text-fg-muted">만들고 싶은 UI를 설명해 주세요. 적용 중인 가이드에 맞춰 코드를 만들어요.</p>:<><div className="ml-auto max-w-[90%] border border-line bg-surface p-3">로그인 폼 만들어줘</div><div className="max-w-[95%] border border-line bg-surface p-3">{streaming?'가이드에 맞춰 이메일·비밀번호 입력과 로그인 유지 체크박스가 있는 로그인 폼을 만들고 있어요.':'가이드에 맞춰 이메일·비밀번호 입력과 로그인 유지 체크박스가 있는 로그인 폼을 만들었어요. [G1][G2]'}{streaming&&<span className="ml-1 animate-pulse">▍</span>} {!streaming&&<div className="mt-3 flex flex-wrap items-center gap-2 text-xs"><span className="text-fg-muted">참고한 가이드</span><button type="button" onClick={()=>setGuide('Form > 필드 구조의 구조와 입력 요소는 수직으로 배치합니다.')} className="rounded-full border border-line px-2 py-1">[G1] Form &gt; 필드 구조</button><button type="button" onClick={()=>setGuide('Button > Variant별 스타일의 기본 버튼은 명확한 대비와 44px 높이를 사용합니다.')} className="rounded-full border border-line px-2 py-1">[G2] Button &gt; Variant별 스타일</button></div>}</div></>}{error&&<div role="alert" className="border border-line bg-surface p-3 text-danger-700">응답을 받지 못했어요. 네트워크를 확인한 뒤 다시 시도해 주세요.<Button variant="secondary" size="sm" className="mt-2" onClick={()=>setSent(false)}>다시 시도하기</Button></div>}</div></div><div className="flex flex-wrap gap-2 py-3">{['회원가입 폼','상품 카드','삭제 확인 모달'].map(x=><Button key={x} variant="ghost" size="sm" onClick={()=>setSent(true)}>{x}</Button>)}</div><form onSubmit={(e)=>{e.preventDefault();setSent(true)}} className="border-t border-line pt-3"><label htmlFor="request" className="mb-2 block text-sm font-medium">요청 입력</label><textarea id="request" placeholder="예: 이메일 입력이 있는 뉴스레터 구독 폼" className="min-h-20 w-full resize-none rounded-input border border-line-input bg-surface px-3 py-2 text-sm" /><div className="mt-2 flex items-center justify-between gap-2"><span className="text-xs text-fg-muted">Ctrl + Enter로 보내기</span><Button type="submit">{streaming?<><Square data-icon="inline-start"/>중단하기</>:<><Send data-icon="inline-start"/>보내기</>}</Button></div></form><Dialog open={!!guide} onOpenChange={(v)=>!v&&setGuide(null)}><DialogContent><DialogHeader><DialogTitle>참고한 가이드</DialogTitle></DialogHeader><p className="text-sm text-fg-secondary">{guide}</p></DialogContent></Dialog></aside> }
+const QUICK_PROMPTS = ['회원가입 폼', '상품 카드', '삭제 확인 모달']
+
+export function Chat() {
+  const requestId = useId()
+  const messages = useWorkspaceStore((s) => s.messages)
+  const addMessage = useWorkspaceStore((s) => s.addMessage)
+  const code = useWorkspaceStore((s) => s.code)
+  const setCode = useWorkspaceStore((s) => s.setCode)
+  const status = useWorkspaceStore((s) => s.status)
+  const setStatus = useWorkspaceStore((s) => s.setStatus)
+  const [requestText, setRequestText] = useState('')
+  const [requestError, setRequestError] = useState<string | null>(null)
+  const isLoading = status === 'streaming'
+
+  async function performRequest(messagesToSend: ChatMessage[]) {
+    setRequestError(null)
+    setStatus('streaming')
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: messagesToSend, currentCode: code }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setRequestError(typeof data.error === 'string' ? data.error : '요청을 처리하지 못했어요.')
+        setStatus('error')
+        return
+      }
+      const fenceIndex: number = data.text.indexOf('```')
+      const explanation: string = (fenceIndex === -1 ? data.text : data.text.slice(0, fenceIndex)).trim()
+      addMessage({ role: 'assistant', content: explanation || data.text })
+      setCode(extractCode(data.text))
+      setStatus('done')
+    } catch {
+      setRequestError('응답을 받지 못했어요. 네트워크를 확인한 뒤 다시 시도해 주세요.')
+      setStatus('error')
+    }
+  }
+
+  function handleSend(content: string) {
+    const trimmed = content.trim()
+    if (!trimmed || isLoading) return
+    setRequestText('')
+    const next = [...messages, { role: 'user' as const, content: trimmed }]
+    addMessage({ role: 'user', content: trimmed })
+    performRequest(next)
+  }
+
+  function handleRetry() {
+    performRequest(messages)
+  }
+
+  return <aside aria-label="채팅" className="flex h-full min-h-0 flex-col bg-surface p-4"><div className="min-h-0 flex-1 overflow-y-auto"><div className="flex flex-col gap-4 text-sm">{messages.length===0?<p className="text-fg-muted">만들고 싶은 UI를 설명해 주세요. 적용 중인 가이드에 맞춰 코드를 만들어요.</p>:messages.map((m,i)=><div key={i} className={cn('max-w-[90%] border border-line bg-surface p-3',m.role==='user'?'ml-auto':'max-w-[95%]')}>{m.content}</div>)}{isLoading&&<div className="max-w-[95%] border border-line bg-surface p-3">코드를 생성하고 있어요.<span className="ml-1 animate-pulse">▍</span></div>}{requestError&&<div role="alert" className="border border-line bg-surface p-3 text-danger-700">{requestError}<Button variant="secondary" size="sm" className="mt-2" onClick={handleRetry}>다시 시도하기</Button></div>}</div></div><div className="flex flex-wrap gap-2 py-3">{QUICK_PROMPTS.map(x=><Button key={x} variant="ghost" size="sm" onClick={()=>handleSend(`${x} 만들어줘`)}>{x}</Button>)}</div><form onSubmit={(e)=>{e.preventDefault();handleSend(requestText)}} className="border-t border-line pt-3"><label htmlFor={requestId} className="mb-2 block text-sm font-medium">요청 입력</label><textarea id={requestId} value={requestText} onChange={(e)=>setRequestText(e.target.value)} onKeyDown={(e)=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();handleSend(requestText)}}} placeholder="예: 이메일 입력이 있는 뉴스레터 구독 폼" className="min-h-20 w-full resize-none rounded-input border border-line-input bg-surface px-3 py-2 text-sm" /><div className="mt-2 flex items-center justify-between gap-2"><span className="text-xs text-fg-muted">Ctrl + Enter로 보내기</span><Button type="submit" disabled={isLoading||!requestText.trim()}>{isLoading?<><Square data-icon="inline-start"/>중단하기</>:<><Send data-icon="inline-start"/>보내기</>}</Button></div></form></aside>
+}
