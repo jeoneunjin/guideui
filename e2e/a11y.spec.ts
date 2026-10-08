@@ -44,6 +44,26 @@ test('a11y violations: /workspace 실제 전송 성공', async ({ page }) => {
   expect(results.violations).toEqual([])
 })
 
+test('a11y violations: /workspace 실제 전송 중단', async ({ page }) => {
+  await page.route('**/api/chat', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/plain; charset=utf-8',
+      body: '버튼을 만들었어요. [G1]\n\n```tsx\nexport default function GeneratedComponent() {\n  return <button type="button">확인</button>\n}\n```',
+    })
+  })
+  await page.goto('/workspace')
+  await page.waitForFunction(() => document.querySelectorAll('[role="separator"]:not([aria-valuenow])').length === 0)
+  const chat = page.locator('aside[aria-label="채팅"]').last()
+  await chat.getByLabel('요청 입력').fill('버튼 만들어줘')
+  await chat.getByRole('button', { name: '보내기' }).click()
+  await chat.getByRole('button', { name: '중단하기' }).click()
+  await expect(chat.getByText('생성을 중단했어요.')).toBeVisible()
+  const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+  expect(results.violations).toEqual([])
+})
+
 test('a11y violations: /workspace 실제 전송 실패', async ({ page }) => {
   await page.route('**/api/chat', (route) =>
     route.fulfill({

@@ -15,6 +15,8 @@ interface WorkspaceState {
   setEditorCode: (code: string) => void
   messages: ChatMessage[]
   addMessage: (message: ChatMessage) => void
+  requestError: string | null
+  setRequestError: (error: string | null) => void
   reset: () => void
 }
 
@@ -29,5 +31,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   setEditorCode: (code) => set({ editorCode: code }),
   messages: [],
   addMessage: (message) => set((s) => ({ messages: [...s.messages, message] })),
-  reset: () => set({ status: 'idle', editorCode: INITIAL_CODE, previewCode: INITIAL_CODE, messages: [] }),
+  requestError: null,
+  setRequestError: (error) => set({ requestError: error }),
+  reset: () =>
+    set({ status: 'idle', editorCode: INITIAL_CODE, previewCode: INITIAL_CODE, messages: [], requestError: null }),
 }))
