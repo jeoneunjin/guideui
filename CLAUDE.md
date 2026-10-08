@@ -139,6 +139,40 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   state로는 안 됨, 전부 store로). "참고한 가이드" 인용 칩/다이얼로그는 제거(실제 RAG 인용 데이터 없어서
   가짜로 안 만듦, RAG 붙으면 다시 만들 것). `chat.tsx`의 textarea `id`가 두 인스턴스에 하드코딩 중복돼
   있던 실제 a11y 버그를 발견해서 `useId()`로 고침.
-- 다음: STAGE 3 이슈 8개(#27~#34, 스트리밍 전환)가 마일스톤에 이미 만들어져 있음. `/api/chat`을
-  `streamText`로 바꾸는 #27이 나머지(#28 펜스 스트림 파서, #29 스트리밍 상태 머신, #30 editorCode/
-  previewCode 분리, #31 중단·재생성)의 기반이라 먼저 시작하는 게 자연스러움.
+### STAGE 3 · 채팅 UI·스트리밍 진행 중 (8개 중 #27~#30 완료, #31~#34 남음)
+- #27 `/api/chat` 스트리밍 전환 — `generateText` → `streamText` + `abortSignal: req.signal`.
+  단, 모델 토큰을 그대로 클라이언트에 중계하진 않음: #22의 import 화이트리스트 검증이 완성된
+  텍스트가 있어야 판단 가능해서, 서버가 `streamText`를 끝까지 소비해 검증까지 마친 "최종 확정
+  텍스트"를 서버가 직접 청크로 잘라 지연을 주며 흘려보내는 합성 스트림으로 응답함(모델 토큰
+  실시간 중계는 아니지만 클라이언트는 타이핑되듯 점진적으로 봄). `chat.tsx`는 `AbortController` +
+  `res.body.getReader()`로 교체, "중단하기" 버튼이 이제 실제로 동작함.
+- #28 `extractPartialCode`(`lib/code/extract-partial-code.ts`) — 스트림이 아직 안 끝난 상태에서
+  "지금까지 나온 코드"를 안전하게 뽑아내는 순수 함수. `extractCode`(#19, 완성된 응답 전용, 펜스
+  없으면 전체 텍스트를 코드로 간주하는 폴백 있음)와 역할 분리 — 스트림 중간엔 "아직 설명 문장을
+  쓰는 중"일 수도 있어서 그 폴백 가정이 틀림. 이 PR에서는 순수 함수 + 단위 테스트만, 실제 UI
+  연결은 #30에서.
+- #29 스트리밍 상태 머신 — `features/workspace/workspace-status.ts`에 `WorkspaceStatus`/
+  `WorkspaceEvent` 타입과 전환표 `nextWorkspaceStatus(current, event)`. 지금 실제로 동작하는
+  흐름만 전환표에 넣음: `idle --start--> streaming --{finish,fail,abort}--> {done,error,aborted}
+  --start--> streaming`. `rendering`/`checking`/`fixing`은 아직 어떤 코드도 전이시키지 않아서
+  전환 규칙 추측해서 안 만듦(STAGE 7·8에서 해당 기능 붙을 때 추가 예정). `workspace-store.ts`의
+  `setStatus(status)` raw setter를 `dispatch(event)`로 교체, `chat.tsx`도 전부 `dispatch` 사용.
+- #30 editorCode/previewCode 분리 + 에디터 반영 스로틀 — `workspace-store.ts`의 단일 `code`
+  필드를 `editorCode`(스트리밍 중 실시간 반영 전용, `setEditorCode`)/`previewCode`(수동 편집·
+  스트림 완료·중단 시에만 `setCode`로 함께 갱신)로 분리. `chat.tsx`가 스트리밍 루프에서 매 청크마다
+  `extractPartialCode`로 100ms 스로틀(`EDITOR_THROTTLE_MS`) 반영해 에디터가 응답 완료 전에도
+  점진적으로 채워짐. 프리뷰는 Sandpack 재마운트 비용과 미완성 코드 컴파일 에러 깜빡임을 피하려고
+  스트리밍 중엔 그대로 placeholder 유지, 완료 시점에만 갱신(타이밍 변경 없음). 중단/에러 시엔
+  요청 시작 시점 스냅샷(`codeBeforeStream`)으로 복귀.
+  **실제 버그 발견·수정**: `@monaco-editor/react`의 `onChange`가 `streaming` 중 `setEditorCode`로
+  인한 프로그래밍 방식 `value` 변경에도 호출됨(`onChange={streaming?undefined:handleChange}`
+  조건만으론 안 걸러짐) — `editor.tsx`의 수동 편집 디바운스(300ms)가 이 phantom 호출로 계속
+  리셋되다가, 스트림이 끝나 올바른 최종 코드가 반영된 지 ~300ms 뒤에 마지막 디바운스 타이머가
+  뒤늦게 발동해서 스트리밍 도중의 미완성 코드로 최종 코드를 덮어쓰는 레이스였음. `handleChange`
+  맨 위에 `streamingRef`(매 렌더 직접 동기화되는 ref) 가드를 추가해 해결(자세한 내용은 메모리
+  `project_monaco_onchange_fires_on_programmatic_value` 참고). 머지 전 자체 체크리스트 검증
+  중에 발견 — 프리뷰 확인 전에 먼저 잡아서 고친 뒤 보고함.
+- 다음: #31(중단·재생성). `handleRetry`는 이미 있지만 지금은 그냥 마지막 메시지들로 재요청하는
+  수준 — 이슈 제목대로면 중단된 요청의 재생성 흐름을 더 다듬는 작업으로 보임. #109(PR #30)에
+  남겨둔 "알려진 제약"(자동화 브라우저 환경에서 중단 시점 캡처가 안 됐던 것, 앱 버그 아님)도
+  참고. 그다음은 #32(대화형 수정), #33(채팅 UX), #34(TTFT 측정).
