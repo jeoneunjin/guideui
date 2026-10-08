@@ -9,8 +9,10 @@ export type ChatMessage = { role: 'user' | 'assistant'; content: string }
 interface WorkspaceState {
   status: WorkspaceStatus
   dispatch: (event: WorkspaceEvent) => void
-  code: string
+  editorCode: string
+  previewCode: string
   setCode: (code: string) => void
+  setEditorCode: (code: string) => void
   messages: ChatMessage[]
   addMessage: (message: ChatMessage) => void
   reset: () => void
@@ -21,9 +23,11 @@ const INITIAL_CODE = defaultCode.join('\n')
 export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   status: 'idle',
   dispatch: (event) => set((s) => ({ status: nextWorkspaceStatus(s.status, event) })),
-  code: INITIAL_CODE,
-  setCode: (code) => set({ code }),
+  editorCode: INITIAL_CODE,
+  previewCode: INITIAL_CODE,
+  setCode: (code) => set({ editorCode: code, previewCode: code }),
+  setEditorCode: (code) => set({ editorCode: code }),
   messages: [],
   addMessage: (message) => set((s) => ({ messages: [...s.messages, message] })),
-  reset: () => set({ status: 'idle', code: INITIAL_CODE, messages: [] }),
+  reset: () => set({ status: 'idle', editorCode: INITIAL_CODE, previewCode: INITIAL_CODE, messages: [] }),
 }))

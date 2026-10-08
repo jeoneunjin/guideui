@@ -34,7 +34,7 @@ const MONACO_OPTIONS = {
 const DEBOUNCE_MS = 300
 
 export function Editor({tab,setTab,streaming}:{tab:'코드'|'Diff'|'버전';setTab:(x:'코드'|'Diff'|'버전')=>void;streaming:boolean}) {
-  const code = useWorkspaceStore((s) => s.code)
+  const code = useWorkspaceStore((s) => s.editorCode)
   const setCode = useWorkspaceStore((s) => s.setCode)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingValueRef = useRef<string | null>(null)

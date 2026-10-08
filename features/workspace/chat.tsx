@@ -5,16 +5,19 @@ import { Send, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { extractCode } from '@/lib/code/extract-code'
+import { extractPartialCode } from '@/lib/code/extract-partial-code'
 import { useWorkspaceStore, type ChatMessage } from './workspace-store'
 
 const QUICK_PROMPTS = ['회원가입 폼', '상품 카드', '삭제 확인 모달']
+const EDITOR_THROTTLE_MS = 100
 
 export function Chat() {
   const requestId = useId()
   const messages = useWorkspaceStore((s) => s.messages)
   const addMessage = useWorkspaceStore((s) => s.addMessage)
-  const code = useWorkspaceStore((s) => s.code)
+  const editorCode = useWorkspaceStore((s) => s.editorCode)
   const setCode = useWorkspaceStore((s) => s.setCode)
+  const setEditorCode = useWorkspaceStore((s) => s.setEditorCode)
   const status = useWorkspaceStore((s) => s.status)
   const dispatch = useWorkspaceStore((s) => s.dispatch)
   const [requestText, setRequestText] = useState('')
@@ -25,6 +28,7 @@ export function Chat() {
 
   async function performRequest(messagesToSend: ChatMessage[]) {
     setRequestError(null)
+    const codeBeforeStream = editorCode
     dispatch('start')
     setStreamingText('')
     const controller = new AbortController()
@@ -33,7 +37,7 @@ export function Chat() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: messagesToSend, currentCode: code }),
+        body: JSON.stringify({ messages: messagesToSend, currentCode: codeBeforeStream }),
         signal: controller.signal,
       })
       if (!res.ok) {
@@ -45,12 +49,21 @@ export function Chat() {
       const reader = res.body!.getReader()
       const decoder = new TextDecoder()
       let fullText = ''
+      let lastEditorUpdate = 0
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
         fullText += decoder.decode(value, { stream: true })
         const fenceIndex = fullText.indexOf('```')
         setStreamingText(fenceIndex === -1 ? fullText : fullText.slice(0, fenceIndex))
+        const partialCode = extractPartialCode(fullText)
+        if (partialCode !== null) {
+          const now = Date.now()
+          if (now - lastEditorUpdate >= EDITOR_THROTTLE_MS) {
+            setEditorCode(partialCode)
+            lastEditorUpdate = now
+          }
+        }
       }
       const fenceIndex = fullText.indexOf('```')
       const explanation = (fenceIndex === -1 ? fullText : fullText.slice(0, fenceIndex)).trim()
@@ -58,6 +71,7 @@ export function Chat() {
       setCode(extractCode(fullText))
       dispatch('finish')
     } catch {
+      setCode(codeBeforeStream)
       if (controller.signal.aborted) {
         dispatch('abort')
       } else {
