@@ -38,6 +38,8 @@ export function Editor({tab,setTab,streaming}:{tab:'코드'|'Diff'|'버전';setT
   const setCode = useWorkspaceStore((s) => s.setCode)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingValueRef = useRef<string | null>(null)
+  const streamingRef = useRef(streaming)
+  streamingRef.current = streaming
   const [copied, setCopied] = useState(false)
 
   async function handleCopy() {
@@ -68,6 +70,10 @@ export function Editor({tab,setTab,streaming}:{tab:'코드'|'Diff'|'버전';setT
   }, [setCode])
 
   function handleChange(value: string | undefined) {
+    // Monaco는 streaming 중 코드가 setEditorCode로 프로그래밍 방식으로 바뀔 때도 onChange를
+    // 호출한다(onChange={streaming?undefined:handleChange}만으로는 안 걸러짐) — 걸러내지 않으면
+    // 스트림 종료 직후 이 디바운스가 스트리밍 도중의 부분 코드로 최종 코드를 덮어써버린다.
+    if (streamingRef.current) return
     pendingValueRef.current = value ?? ''
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
