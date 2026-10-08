@@ -15,8 +15,12 @@ function handleBeforeMount(monaco: Monaco) {
   monaco.editor.defineTheme(MONACO_THEME, {
     base: 'vs-dark',
     inherit: true,
-    rules: [],
-    colors: { 'editor.background': appTokens.code.bg, 'editor.foreground': appTokens.code.fg },
+    rules: [{ token: 'invalid', foreground: appTokens.code.invalidFg.slice(1) }],
+    colors: {
+      'editor.background': appTokens.code.bg,
+      'editor.foreground': appTokens.code.fg,
+      'editorLineNumber.foreground': appTokens.code.lineNumberFg,
+    },
   })
   monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
     jsx: monaco.languages.typescript.JsxEmit.Preserve,
