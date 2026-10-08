@@ -5,7 +5,8 @@
  * 아니라, GuideUI 자체 화면(코드 에디터 등)에서만 쓰는 값이다. RAG 인제스트·eval 채점 대상이
  * 아니므로 sample-guide/ 밖에 둔다.
  *
- * scripts/sync-tokens.mjs가 이 값을 읽어 app/globals.css를 생성한다.
+ * scripts/sync-tokens.mjs가 bg/fg를 읽어 app/globals.css를 생성한다 — Tailwind 클래스로 쓰는
+ * 값만 대상이고, Monaco defineTheme에 직접 전달되는 값(예: invalidFg, lineNumberFg)은 대상이 아니다.
  */
 
 export const code = {
