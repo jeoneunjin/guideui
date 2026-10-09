@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { streamText } from 'ai'
 import { z } from 'zod'
 import { getGenerationModel } from '@/lib/llm'
@@ -6,6 +6,7 @@ import { buildGenerateSystemPrompt } from '@/lib/generate-prompt'
 import { extractCode } from '@/lib/code/extract-code'
 import { validateImports } from '@/lib/code/validate-imports'
 import { ALLOWED_IMPORT_SOURCES } from '@/lib/code/allowed-imports'
+import { logUsage } from '@/lib/usage-log'
 
 const MAX_HISTORY_MESSAGES = 10 // 최근 5턴(사용자+어시스턴트) 정도만 모델에 보냄
 
@@ -53,15 +54,26 @@ export async function POST(req: Request) {
   const { messages, currentCode } = parsed.data
   try {
     const recentMessages = messages.slice(-MAX_HISTORY_MESSAGES)
-    const callModel = (extra: { role: 'assistant' | 'user'; content: string }[] = []) =>
-      streamText({
+    async function callModel(extra: { role: 'assistant' | 'user'; content: string }[] = []) {
+      const result = streamText({
         model: getGenerationModel(),
         system: buildGenerateSystemPrompt({ currentCode }),
         messages: [...recentMessages, ...extra],
         abortSignal: req.signal,
-      }).text
+      })
+      const startedAt = Date.now()
+      let ttftMs = 0
+      let text = ''
+      for await (const delta of result.textStream) {
+        if (text === '') ttftMs = Date.now() - startedAt
+        text += delta
+      }
+      const usage = await result.usage
+      const tokens = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0)
+      return { text, ttftMs, tokens }
+    }
 
-    let text = await callModel()
+    let { text, ttftMs, tokens: totalTokens } = await callModel()
     let result = validateImports(extractCode(text))
 
     if (!result.valid) {
@@ -69,20 +81,24 @@ export async function POST(req: Request) {
         result.reason === 'disallowed-import'
           ? `방금 생성한 코드가 허용되지 않은 import를 사용했어요: ${result.disallowed.join(', ')}. ${ALLOWED_IMPORT_SOURCES.join(', ')} 중에서만 import해서 다시 생성해 주세요.`
           : '방금 생성한 코드에 문법 오류가 있어요. 다시 생성해 주세요.'
-      text = await callModel([
+      const retry = await callModel([
         { role: 'assistant', content: text },
         { role: 'user', content: feedback },
       ])
+      text = retry.text
+      totalTokens += retry.tokens
       result = validateImports(extractCode(text))
     }
 
     if (!result.valid) {
+      after(() => logUsage({ req, ttftMs, tokens: totalTokens }))
       return NextResponse.json(
         { error: '허용되지 않은 코드가 반복 생성됐어요. 다시 시도해 주세요.', reason: result.reason },
         { status: 422 },
       )
     }
 
+    after(() => logUsage({ req, ttftMs, tokens: totalTokens }))
     return new Response(toChunkedStream(text, req.signal), {
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },
     })
