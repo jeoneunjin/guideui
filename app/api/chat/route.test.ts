@@ -72,4 +72,20 @@ describe('POST /api/chat', () => {
     })
     expect(mockStreamText).toHaveBeenCalledTimes(2)
   })
+
+  it('메시지가 10개보다 많으면 최근 10개만 모델에 보낸다', async () => {
+    mockStreamText.mockReset()
+    mockResponseOnce(VALID_CODE)
+
+    const messages = Array.from({ length: 14 }, (_, i) => ({
+      role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
+      content: `메시지 ${i}`,
+    }))
+
+    await POST(request({ messages }))
+
+    const sentMessages = mockStreamText.mock.calls[0][0].messages
+    expect(sentMessages).toHaveLength(10)
+    expect(sentMessages).toEqual(messages.slice(-10))
+  })
 })

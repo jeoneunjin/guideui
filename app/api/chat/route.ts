@@ -7,6 +7,8 @@ import { extractCode } from '@/lib/code/extract-code'
 import { validateImports } from '@/lib/code/validate-imports'
 import { ALLOWED_IMPORT_SOURCES } from '@/lib/code/allowed-imports'
 
+const MAX_HISTORY_MESSAGES = 10 // 최근 5턴(사용자+어시스턴트) 정도만 모델에 보냄
+
 function toChunkedStream(text: string, signal: AbortSignal): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder()
   const CHUNK_SIZE = 24
@@ -50,11 +52,12 @@ export async function POST(req: Request) {
 
   const { messages, currentCode } = parsed.data
   try {
+    const recentMessages = messages.slice(-MAX_HISTORY_MESSAGES)
     const callModel = (extra: { role: 'assistant' | 'user'; content: string }[] = []) =>
       streamText({
         model: getGenerationModel(),
         system: buildGenerateSystemPrompt({ currentCode }),
-        messages: [...messages, ...extra],
+        messages: [...recentMessages, ...extra],
         abortSignal: req.signal,
       }).text
 
