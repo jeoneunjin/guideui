@@ -139,7 +139,7 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   state로는 안 됨, 전부 store로). "참고한 가이드" 인용 칩/다이얼로그는 제거(실제 RAG 인용 데이터 없어서
   가짜로 안 만듦, RAG 붙으면 다시 만들 것). `chat.tsx`의 textarea `id`가 두 인스턴스에 하드코딩 중복돼
   있던 실제 a11y 버그를 발견해서 `useId()`로 고침.
-### STAGE 3 · 채팅 UI·스트리밍 진행 중 (8개 중 #27~#30 완료, #31~#34 남음)
+### STAGE 3 · 채팅 UI·스트리밍 완료 (이슈 8개: #27~#34)
 - #27 `/api/chat` 스트리밍 전환 — `generateText` → `streamText` + `abortSignal: req.signal`.
   단, 모델 토큰을 그대로 클라이언트에 중계하진 않음: #22의 import 화이트리스트 검증이 완성된
   텍스트가 있어야 판단 가능해서, 서버가 `streamText`를 끝까지 소비해 검증까지 마친 "최종 확정
@@ -172,7 +172,29 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   맨 위에 `streamingRef`(매 렌더 직접 동기화되는 ref) 가드를 추가해 해결(자세한 내용은 메모리
   `project_monaco_onchange_fires_on_programmatic_value` 참고). 머지 전 자체 체크리스트 검증
   중에 발견 — 프리뷰 확인 전에 먼저 잡아서 고친 뒤 보고함.
-- 다음: #31(중단·재생성). `handleRetry`는 이미 있지만 지금은 그냥 마지막 메시지들로 재요청하는
-  수준 — 이슈 제목대로면 중단된 요청의 재생성 흐름을 더 다듬는 작업으로 보임. #109(PR #30)에
-  남겨둔 "알려진 제약"(자동화 브라우저 환경에서 중단 시점 캡처가 안 됐던 것, 앱 버그 아님)도
-  참고. 그다음은 #32(대화형 수정), #33(채팅 UX), #34(TTFT 측정).
+- #31 중단·재생성 — 중단 시 "생성을 중단했어요." 배너 + "다시 생성하기" 버튼 추가(v0 디자인에도
+  이 상태는 애초에 없었음). `requestError`를 `chat.tsx` 로컬 상태에서 스토어로 이동(모바일/
+  데스크톱 두 `<Chat/>` 인스턴스가 항상 동시에 마운트되는 구조라 로컬 상태로는 한쪽에서만
+  보였음). 테스트 중 Monaco 색상 대비 버그 2건도 같이 발견해 고침(기존 글 참고).
+- #32 대화형 수정 — "현재 코드 컨텍스트"는 #18에서 이미 돼 있었음(시스템 프롬프트의
+  `CURRENT CODE` 블록). "최근 N턴"이 비어 있던 부분이라, `/api/chat`에서 모델 호출 직전에만
+  `messages.slice(-10)`으로 자름(화면에 보이는 대화 기록은 안 자름 — 모델 호출 비용 문제와
+  UI 표시는 분리된 문제).
+- #33 채팅 UX — 어시스턴트 말풍선 `react-markdown` 렌더링, 메시지 자동 스크롤(사용자가 위로
+  스크롤 중이면 안 끌어내림), 스트리밍 중 Esc로 중단, 예시 칩 로딩 중 비활성화. 테스트 중
+  **실제 레이아웃 버그**도 발견해 고침: `components/layout/app-shell.tsx`의 최상위 wrapper가
+  `min-h-screen`이라 메시지가 많이 쌓이면 채팅 패널이 콘텐츠 크기만큼 계속 늘어나며 내부
+  스크롤이 아예 발동 안 하고 입력창이 화면 밖으로 밀려났음 — `h-screen` + `main`에
+  `overflow-y-auto`로 수정.
+- #34 TTFT·usage_logs 기록 — `usage_logs` 테이블(#12에서 생성, 지금까지 미사용)에 처음으로
+  실제 연결. `lib/usage-log.ts`가 Supabase에 기록하는데 `SUPABASE_URL`/
+  `SUPABASE_SERVICE_ROLE_KEY`가 없으면 조용히 스킵(`LLM_PROVIDER=mock` 기본값과 같은 원칙).
+  `/api/chat`의 `callModel`을 `streamText(...).text` 한 번에 기다리던 방식에서 `textStream`
+  순회로 바꿔 TTFT(모델이 첫 토큰을 내기까지 걸린 시간, 서버 내부 관점)를 실제로 측정.
+  응답 블로킹 없이 기록하려고 Next.js 16의 `after()`(`next/server`) 사용. 로컬에서 실제
+  Supabase 프로젝트(`gbjxtcyvsuxorrykzwhc`)에 연결해서 행이 정상 insert되는 것까지 확인함
+  (`ip_hash`가 해시로 들어가는 것도 확인). **후속 과제**: Vercel에는 아직 이 두 환경변수가
+  안 등록돼 있어서 배포된 사이트(프리뷰·프로덕션)에서는 여전히 스킵됨 — STAGE 10(안정화·배포)
+  때, 또는 더 빨리 STAGE 9(평가·성과 측정)에서 `eval/prompts.json` 돌릴 때 실제 데이터를
+  쌓고 싶으면 그때 Vercel 프로젝트 Settings → Environment Variables에 추가할 것.
+- STAGE 3 마일스톤 이슈 8개(#27~#34) 전부 완료. 다음은 STAGE 4(세션 저장·버전 히스토리).
