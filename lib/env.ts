@@ -8,6 +8,8 @@ const envSchema = z
       .transform((v) => v.trim())
       .pipe(z.string().min(1))
       .optional(),
+    SUPABASE_URL: z.string().url().optional(),
+    SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   })
   .superRefine((val, ctx) => {
     if (val.LLM_PROVIDER === 'gemini' && !val.GOOGLE_GENERATIVE_AI_API_KEY) {
@@ -15,6 +17,13 @@ const envSchema = z
         code: 'custom',
         path: ['GOOGLE_GENERATIVE_AI_API_KEY'],
         message: 'LLM_PROVIDER=gemini일 때는 GOOGLE_GENERATIVE_AI_API_KEY가 필요해요.',
+      })
+    }
+    if (!!val.SUPABASE_URL !== !!val.SUPABASE_SERVICE_ROLE_KEY) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SUPABASE_URL'],
+        message: 'SUPABASE_URL과 SUPABASE_SERVICE_ROLE_KEY는 둘 다 설정하거나 둘 다 비워야 해요.',
       })
     }
   })
