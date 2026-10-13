@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { AppShell } from '@/components/layout/app-shell'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { cn } from '@/lib/utils'
@@ -8,8 +8,21 @@ import { Chat } from '@/features/workspace/chat'
 import { Editor } from '@/features/workspace/editor'
 import { Preview } from '@/features/workspace/preview'
 import { useWorkspaceStore } from '@/features/workspace/workspace-store'
+import type { RestoredSession } from '@/features/workspace/restore-session'
 
-export function Workspace({ initialState = 'done' }: { initialState?: string }) {
+export function Workspace({
+  initialState = 'done',
+  initialSession = null,
+}: {
+  initialState?: string
+  initialSession?: RestoredSession | null
+}) {
+  const hydrateSession = useWorkspaceStore((s) => s.hydrateSession)
+  const hasHydratedRef = useRef(false)
+  if (!hasHydratedRef.current) {
+    hasHydratedRef.current = true
+    hydrateSession(initialSession)
+  }
   const state = ['streaming', 'done', 'fixed'].includes(initialState) ? initialState : 'done'
   const [tab, setTab] = useState<'코드'|'Diff'|'버전'>('코드')
   const [mobileTab, setMobileTab] = useState<'채팅'|'코드'|'미리보기'>('채팅')
