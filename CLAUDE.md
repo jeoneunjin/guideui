@@ -206,3 +206,38 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   모두)에 절대 등록하지 않는다.** 지금은 `.env.local`에만 있어서 로컬 개발만 영향받고 배포된
   사이트는 안전함 — 이 상태를 실수로 안 풀리게 유지할 것. (`SUPABASE_URL`/
   `SUPABASE_SERVICE_ROLE_KEY`는 서버 전용·RLS 무관이라 이 규칙과 별개, #34 노트 참고.)
+
+### STAGE 4 · 세션 저장·버전 히스토리 진행 중 (5개 중 #35·#36 완료, #37~#39 남음)
+- #35 인증 방식 적용(Supabase 익명 로그인) — Next.js 16의 `proxy.ts`(옛 `middleware.ts`) +
+  `lib/supabase/middleware.ts`의 `updateAnonymousSession()`이 요청마다 세션을 확인하고
+  없으면 `signInAnonymously()`로 익명 유저를 발급, 쿠키(`sb-<ref>-auth-token`)로 세션을
+  유지한다. `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` 미설정 시 조용히
+  스킵. `lib/supabase/client.ts`(브라우저 클라이언트 팩토리)도 같이 만들었지만 이 PR에서는
+  호출부 없음(#36에서 연결). 실제 Supabase 프로젝트로 로컬 검증: 쿠키 생성, `is_anonymous:
+  true` 유저 생성, 같은 쿠키 재요청 시 세션 재사용(새 유저 안 생김), 쿠키 없는 새 요청 시
+  별도 유저 생성까지 전부 확인. 검증 중 `signInAnonymously()`가 실패해도 throw 안 하고
+  `{ error }`만 반환하는 걸 놓쳐서 에러가 조용히 삼켜지던 버그를 발견해 같이 고침.
+- #36 세션·메시지·버전 저장(TanStack Query mutation) — 채팅 메시지와 생성된 코드를
+  `sessions`/`messages`/`component_versions`에 저장, 새로고침 시 유저의 가장 최근 세션을
+  복원한다. 복원은 Server Component(`app/workspace/page.tsx` → `features/workspace/
+  restore-session.ts`의 `getLatestSession()`)에서, 저장은 클라이언트 TanStack Query
+  mutation(`features/workspace/session-persistence.ts` + `use-session-mutations.ts`)에서
+  브라우저가 `lib/supabase/client.ts`로 직접 insert — 새 API 라우트 없이 PostgREST를 그대로
+  씀(#35에서 깔아둔 인프라가 처음 실사용됨). 세션 모델은 "유저당 가장 최근 세션 1개"로
+  단순화(세션 목록/전환 UI, `/workspace/[id]` 동적 라우트는 STAGE 4 어느 이슈에도 없어서
+  범위 밖). 버전 번호는 DB 자동증가가 아니라 `workspace-store.latestVersion`이 클라이언트
+  에서 추적(`component_versions`에 `(session_id, version)` unique 제약이 없어서 복원 쿼리는
+  `version desc`+`created_at desc` 2차 정렬로 동률을 깸). 수동 Monaco 편집은 버전으로
+  저장 안 함(디바운스 자동저장은 범위 밖, 새로고침하면 마지막 AI 생성본으로 돌아감 — 알려진
+  제약으로 남겨둠). 실제 발견한 함정: `sessions.user_id`가 디폴트로 안 채워져서
+  `createSession`에서 `auth.getUser()`로 받은 id를 명시적으로 넣어야 함(안 그러면 복원
+  쿼리가 조용히 빈 결과 반환). anon/publishable key로 insert·select 자체는 추가 GRANT 없이
+  Supabase 기본 권한으로 전부 됨(실제 검증함). 실제 Supabase로 브라우저 E2E 검증: 메시지
+  전송 → DB row 생성 → 새로고침 → 메시지+코드 복원 → 메시지 추가 → 버전 2로 복원 → env
+  미설정 시 복원 없이 기본 목업으로 스킵, 채팅은 정상 동작까지 전부 확인. 머지 전 CI에서
+  기존 e2e 중단 테스트(#31에서 만든 것)가 CI 전용 환경(워커 2개, 느린 CPU)에서만 실패하는
+  걸 발견 — 300ms 고정 지연 뒤 응답을 한 번에 fulfill하는 구조라 "중단하기" 버튼이 활성화된
+  시간이 딱 300ms뿐이었던 레이스였음, 응답을 테스트가 중단 버튼을 누를 때까지 영원히 멈춰
+  두는 방식으로 고쳐서 레이스 자체를 제거함(#36 범위 밖이지만 머지 전제조건이라 같이 고침).
+- 다음은 #37(버전 목록 및 되돌리기) — `editor.tsx`의 "버전" 탭 더미 리스트를 실제
+  `component_versions` 데이터로 교체하고 되돌리기 기능을 붙일 차례.
