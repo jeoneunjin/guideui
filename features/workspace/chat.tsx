@@ -8,6 +8,8 @@ import { cn } from '@/lib/utils'
 import { extractCode } from '@/lib/code/extract-code'
 import { extractPartialCode } from '@/lib/code/extract-partial-code'
 import { useWorkspaceStore, type ChatMessage } from './workspace-store'
+import { useEnsureSession } from './use-ensure-session'
+import { useSaveMessage, useSaveVersion } from './use-session-mutations'
 
 const QUICK_PROMPTS = ['회원가입 폼', '상품 카드', '삭제 확인 모달']
 const EDITOR_THROTTLE_MS = 100
@@ -31,6 +33,10 @@ export function Chat() {
   const dispatch = useWorkspaceStore((s) => s.dispatch)
   const requestError = useWorkspaceStore((s) => s.requestError)
   const setRequestError = useWorkspaceStore((s) => s.setRequestError)
+  const incrementVersion = useWorkspaceStore((s) => s.incrementVersion)
+  const { ensureSessionId } = useEnsureSession()
+  const saveMessage = useSaveMessage()
+  const saveVersion = useSaveVersion()
   const [requestText, setRequestText] = useState('')
   const [streamingText, setStreamingText] = useState('')
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -57,6 +63,33 @@ export function Chat() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isLoading])
+
+  async function persistUserMessage(content: string) {
+    try {
+      const sessionId = await ensureSessionId()
+      if (!sessionId) return
+      await saveMessage.mutateAsync({ sessionId, role: 'user', content })
+    } catch (error) {
+      console.error('메시지 저장 실패:', error)
+    }
+  }
+
+  async function persistAssistantTurn(content: string, code: string) {
+    try {
+      const sessionId = await ensureSessionId()
+      if (!sessionId) return
+      const messageId = await saveMessage.mutateAsync({ sessionId, role: 'assistant', content })
+      await saveVersion.mutateAsync({
+        sessionId,
+        version: incrementVersion(),
+        code,
+        kind: 'generate',
+        sourceMessageId: messageId,
+      })
+    } catch (error) {
+      console.error('버전 저장 실패:', error)
+    }
+  }
 
   async function performRequest(messagesToSend: ChatMessage[]) {
     setRequestError(null)
@@ -99,9 +132,12 @@ export function Chat() {
       }
       const fenceIndex = fullText.indexOf('```')
       const explanation = (fenceIndex === -1 ? fullText : fullText.slice(0, fenceIndex)).trim()
-      addMessage({ role: 'assistant', content: explanation || fullText })
-      setCode(extractCode(fullText))
+      const content = explanation || fullText
+      const code = extractCode(fullText)
+      addMessage({ role: 'assistant', content })
+      setCode(code)
       dispatch('finish')
+      persistAssistantTurn(content, code)
     } catch {
       setCode(codeBeforeStream)
       if (controller.signal.aborted) {
@@ -122,6 +158,7 @@ export function Chat() {
     setRequestText('')
     const next = [...messages, { role: 'user' as const, content: trimmed }]
     addMessage({ role: 'user', content: trimmed })
+    persistUserMessage(trimmed)
     performRequest(next)
   }
 
