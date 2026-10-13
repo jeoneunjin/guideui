@@ -45,14 +45,12 @@ test('a11y violations: /workspace 실제 전송 성공', async ({ page }) => {
 })
 
 test('a11y violations: /workspace 실제 전송 중단', async ({ page }) => {
-  await page.route('**/api/chat', async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 300))
-    await route.fulfill({
-      status: 200,
-      contentType: 'text/plain; charset=utf-8',
-      body: '버튼을 만들었어요. [G1]\n\n```tsx\nexport default function GeneratedComponent() {\n  return <button type="button">확인</button>\n}\n```',
-    })
-  })
+  // 응답을 "짧게 지연"시키는 대신 테스트가 중단 버튼을 누를 때까지 영원히 멈춰 둔다.
+  // CPU가 제한된 CI 환경(워커 수가 적음)에서는 고정된 지연(예: 300ms) 동안 중단 버튼을
+  // 못 찾고 재시도하다가 시간이 다 지나버려 이미 응답이 끝나버리는 레이스가 있었다 —
+  // 응답을 결코 끝내지 않으면 "중단하기" 버튼이 비활성화될 일 자체가 없어진다.
+  // 실제로는 클릭 직후 클라이언트가 fetch 자체를 abort하므로 이 응답은 끝까지 안 가도 된다.
+  await page.route('**/api/chat', () => new Promise(() => {}))
   await page.goto('/workspace')
   await page.waitForFunction(() => document.querySelectorAll('[role="separator"]:not([aria-valuenow])').length === 0)
   const chat = page.locator('aside[aria-label="채팅"]').last()
