@@ -198,3 +198,11 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   때, 또는 더 빨리 STAGE 9(평가·성과 측정)에서 `eval/prompts.json` 돌릴 때 실제 데이터를
   쌓고 싶으면 그때 Vercel 프로젝트 Settings → Environment Variables에 추가할 것.
 - STAGE 3 마일스톤 이슈 8개(#27~#34) 전부 완료. 다음은 STAGE 4(세션 저장·버전 히스토리).
+- **보안 규칙(#36 계획 중 발견, 중요)**: `sessions`/`messages`/`component_versions` 테이블에
+  RLS가 전혀 설정 안 돼 있어서(#39에서 설정 예정), `NEXT_PUBLIC_SUPABASE_URL`/
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY`(익명 로그인·클라이언트 DB 접근용, #35)가 노출되는 환경에서는
+  publishable key만 있으면 누구나 다른 유저의 세션을 읽고 쓰고 지울 수 있음(실제 검증함).
+  **#39(RLS 정책 설정)가 끝나기 전까지는 이 두 환경변수를 Vercel 프로젝트(프리뷰·프로덕션
+  모두)에 절대 등록하지 않는다.** 지금은 `.env.local`에만 있어서 로컬 개발만 영향받고 배포된
+  사이트는 안전함 — 이 상태를 실수로 안 풀리게 유지할 것. (`SUPABASE_URL`/
+  `SUPABASE_SERVICE_ROLE_KEY`는 서버 전용·RLS 무관이라 이 규칙과 별개, #34 노트 참고.)
