@@ -198,16 +198,19 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   때, 또는 더 빨리 STAGE 9(평가·성과 측정)에서 `eval/prompts.json` 돌릴 때 실제 데이터를
   쌓고 싶으면 그때 Vercel 프로젝트 Settings → Environment Variables에 추가할 것.
 - STAGE 3 마일스톤 이슈 8개(#27~#34) 전부 완료. 다음은 STAGE 4(세션 저장·버전 히스토리).
-- **보안 규칙(#36 계획 중 발견, 중요)**: `sessions`/`messages`/`component_versions` 테이블에
-  RLS가 전혀 설정 안 돼 있어서(#39에서 설정 예정), `NEXT_PUBLIC_SUPABASE_URL`/
-  `NEXT_PUBLIC_SUPABASE_ANON_KEY`(익명 로그인·클라이언트 DB 접근용, #35)가 노출되는 환경에서는
-  publishable key만 있으면 누구나 다른 유저의 세션을 읽고 쓰고 지울 수 있음(실제 검증함).
-  **#39(RLS 정책 설정)가 끝나기 전까지는 이 두 환경변수를 Vercel 프로젝트(프리뷰·프로덕션
-  모두)에 절대 등록하지 않는다.** 지금은 `.env.local`에만 있어서 로컬 개발만 영향받고 배포된
-  사이트는 안전함 — 이 상태를 실수로 안 풀리게 유지할 것. (`SUPABASE_URL`/
-  `SUPABASE_SERVICE_ROLE_KEY`는 서버 전용·RLS 무관이라 이 규칙과 별개, #34 노트 참고.)
+- **보안 규칙 — 해제됨(#39에서 RLS 적용 완료)**: `sessions`/`messages`/`component_versions`에
+  RLS가 전혀 없던 동안(#36 계획 중 발견) `NEXT_PUBLIC_SUPABASE_URL`/
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY`를 Vercel에 등록하지 않는다는 규칙을 뒀었는데, #39에서
+  실제 소유권 기반 RLS 정책을 적용하고 다른 유저 데이터가 막히는 것까지 직접 검증해서 이제
+  해제됨. **다만 `NEXT_PUBLIC_SUPABASE_*`를 Vercel에 실제로 등록하는 건 이 메모가 "허용"이지
+  "완료"가 아니다** — 등록 자체는 별도 배포 단계에서 할 것(STAGE 10, 또는 더 일찍 데모가
+  필요해지면 그때). 등록 전에 `guide_sets`/`guide_documents`/`guide_chunks`/`usage_logs`는
+  RLS는 켜져 있지만 정책이 비어있어서(#39에서 의도적으로 미룸, "guide_* 테이블 범위" 참고)
+  anon key로는 전부 차단된 상태라는 것도 같이 알아둘 것(STAGE 5/6에서 정책 추가 전까지는
+  그 테이블들 관련 기능이 실제로 안 열림). (`SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`는
+  서버 전용·RLS 무관, #34 노트 참고.)
 
-### STAGE 4 · 세션 저장·버전 히스토리 진행 중 (5개 중 #35~#38 완료, #39 남음)
+### STAGE 4 · 세션 저장·버전 히스토리 완료 (이슈 5개: #35~#39)
 - #35 인증 방식 적용(Supabase 익명 로그인) — Next.js 16의 `proxy.ts`(옛 `middleware.ts`) +
   `lib/supabase/middleware.ts`의 `updateAnonymousSession()`이 요청마다 세션을 확인하고
   없으면 `signInAnonymously()`로 익명 유저를 발급, 쿠키(`sb-<ref>-auth-token`)로 세션을
@@ -282,7 +285,19 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   안 나가게 함 — 타이밍과 무관하게 결정적으로 막힘. 생성된 코드의 컴파일 에러는 Sandpack이
   별도로 보여주고 있어서 Monaco 자체 타입 체크(빨간 밑줄)를 잃는 손해는 작다고 판단.
   코드→Diff→버전→Diff→코드 8번 전환(10초 대기 포함)으로 에러 0건 확인.
-- STAGE 4 마일스톤 이슈 5개 중 4개(#35~#38) 완료. 마지막 #39(RLS 정책 설정)만 남음 —
-  지금까지 `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`를 Vercel에 등록
-  안 한 이유가 바로 이 RLS 공백 때문이었으니(#36 노트 참고), #39가 끝나야 실제 배포 환경에
-  세션 저장 기능을 켤 수 있음.
+- #39 RLS 정책 설정 — `sessions`(`user_id not null` + `auth.users` FK 추가, 본인만
+  `auth.uid() = user_id`로 CRUD), `messages`/`component_versions`(자체 소유자 컬럼이
+  없어서 `sessions` 소유권을 `exists` 서브쿼리로 경유 — #36/#37이 쓰는 "본인 세션"
+  조건과 동일해서 코드 변경 없이 그대로 호환)에 실제 RLS 정책 적용. `guide_sets`/
+  `guide_documents`/`guide_chunks`/`usage_logs`는 **RLS만 켜고 정책은 안 만듦**(정책
+  0개 = anon/authenticated 전부 차단, service_role은 영향 없음) — STAGE 5/6 전까지
+  쓰는 코드가 없어서(실제 0건 확인) `is_demo`/`owner_id` 기반 정책을 추측해서 미리
+  설계하지 않기로 결정(사용자와 상의 후, 과설계 방지). `supabase db push`로 실제
+  프로젝트에 적용 후 Node 스크립트로 검증: 유저 A가 만든 세션을 유저 B(별도 익명
+  로그인)가 조회하면 빈 결과, insert 시도는 `42501`(RLS 위반)로 차단됨 확인(#36 때
+  "다른 유저 세션이 그대로 읽힌다"고 확인했던 것과 정반대 결과). 유저 A 자신의 접근과
+  service role 접근은 영향 없음도 확인. `/workspace`에서 #36~#38 기능(세션 복원, 메시지
+  저장, 버전 목록, 되돌리기, Diff 비교) 전부 RLS 적용 후에도 회귀 없이 동작 확인.
+- **STAGE 4 마일스톤 이슈 5개(#35~#39) 전부 완료.** 다음은 STAGE 5(RAG 가이드 인제스트).
+  `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`를 Vercel에 등록하는 건
+  이제 안전하지만(위 "보안 규칙" 참고) 여전히 별도 배포 단계 — 지금 등록 안 함.
