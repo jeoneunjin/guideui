@@ -35,6 +35,17 @@ function handleBeforeMount(monaco: Monaco) {
   monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
     jsx: monaco.languages.typescript.JsxEmit.Preserve,
   })
+  // DiffEditor가 새 모델을 만들 때 TS 진단 워커가 아직 동기화 안 된 모델을 조회하려다
+  // "Could not find source file" 콘솔 에러를 던지는 Monaco 내부 레이스가 있다(기능엔
+  // 영향 없음, 여러 타이밍 기반 우회를 시도했지만 전부 재현됨 — 레이스 자체를 없애려면
+  // 진단 요청이 애초에 안 나가게 막는 수밖에 없다고 판단함). 생성된 코드의 타입 에러는
+  // 어차피 Sandpack 미리보기가 컴파일 에러로 따로 보여주고 있어서, Monaco 자체의 타입
+  // 체크(빨간 밑줄)는 이 앱에서 핵심 기능이 아니다.
+  monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+    noSemanticValidation: true,
+    noSyntaxValidation: true,
+    noSuggestionDiagnostics: true,
+  })
 }
 
 const MONACO_OPTIONS = {
@@ -61,7 +72,6 @@ export function Editor({tab,setTab,streaming}:{tab:'코드'|'Diff'|'버전';setT
   const pendingValueRef = useRef<string | null>(null)
   const streamingRef = useRef(streaming)
   streamingRef.current = streaming
-  const monacoRef = useRef<Monaco | null>(null)
   const [copied, setCopied] = useState(false)
   const [diffBase, setDiffBase] = useState<number | null>(null)
   const [diffTarget, setDiffTarget] = useState<number | null>(null)
@@ -163,13 +173,8 @@ export function Editor({tab,setTab,streaming}:{tab:'코드'|'Diff'|'버전';setT
             language="typescript"
             theme={MONACO_THEME}
             beforeMount={handleBeforeMount}
-            onMount={handleEditorMount}
             original={originalCode}
             modified={modifiedCode}
-            originalModelPath="inmemory://diff-original.tsx"
-            modifiedModelPath="inmemory://diff-modified.tsx"
-            keepCurrentOriginalModel
-            keepCurrentModifiedModel
             options={{ ...MONACO_OPTIONS, ariaLabel: '버전 비교', readOnly: true, renderSideBySide: true }}
           />
         </div>
@@ -204,30 +209,6 @@ export function Editor({tab,setTab,streaming}:{tab:'코드'|'Diff'|'버전';setT
     }
   }, [setCode])
 
-  function handleEditorMount(_editor: unknown, monaco: Monaco) {
-    monacoRef.current = monaco
-  }
-
-  // Diff 탭이 마운트될 때마다 DiffEditor가 새 임시 모델(inmemory://model/N)을 만드는데,
-  // 그 직후 TS 진단 워커가 이미 dispose된 모델을 찾다가 "Could not find source file" 콘솔
-  // 에러를 던지는 Monaco 내부 레이스가 있다(기능엔 영향 없음, 모델을 고정 경로로 지정해도
-  // 그대로 재현됨을 확인함). Diff 탭에 있는 동안만 TS 진단을 꺼서 그 요청 자체가 안 나가게
-  // 막고, 탭을 벗어나면 "코드" 탭의 타입 체크가 그대로 동작하도록 원래 설정을 복원한다.
-  useEffect(() => {
-    const monaco = monacoRef.current
-    if (tab !== 'Diff' || !monaco) return
-    const tsDefaults = monaco.languages.typescript.typescriptDefaults
-    const previous = tsDefaults.getDiagnosticsOptions()
-    tsDefaults.setDiagnosticsOptions({
-      noSemanticValidation: true,
-      noSyntaxValidation: true,
-      noSuggestionDiagnostics: true,
-    })
-    return () => {
-      tsDefaults.setDiagnosticsOptions(previous)
-    }
-  }, [tab])
-
   function handleChange(value: string | undefined) {
     // Monaco는 streaming 중 코드가 setEditorCode로 프로그래밍 방식으로 바뀔 때도 onChange를
     // 호출한다(onChange={streaming?undefined:handleChange}만으로는 안 걸러짐) — 걸러내지 않으면
@@ -241,5 +222,79 @@ export function Editor({tab,setTab,streaming}:{tab:'코드'|'Diff'|'버전';setT
     }, DEBOUNCE_MS)
   }
 
-  return <section aria-label="코드" className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-surface"><div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2"><div role="tablist" aria-label="코드 보기" className="flex gap-1">{(['코드','Diff','버전'] as const).map(x=><button type="button" key={x} role="tab" aria-selected={tab===x} aria-controls={`editor-panel-${x}`} onClick={()=>setTab(x)} className={cn('rounded-button px-3 py-2 text-sm',tab===x?'border-b-2 border-brand-600 font-medium text-fg-brand':'text-fg-secondary')}>{x}</button>)}</div><div className="flex items-center gap-2 text-xs text-fg-secondary"><span>v{latestVersion}</span><Button variant="ghost" size="sm" aria-live="polite" onClick={handleCopy}><Copy aria-hidden="true" data-icon="inline-start"/>{copied?'복사됨':'복사하기'}</Button><Button variant="ghost" size="sm" onClick={handleDownload}><Download aria-hidden="true" data-icon="inline-start"/>다운로드하기</Button></div></div><div id={`editor-panel-${tab}`} role="tabpanel" aria-label={`${tab} 패널`} className={cn('min-h-0 flex-1',streaming||tab==='코드'||tab==='Diff'?'overflow-hidden':'overflow-y-auto p-4')}>{streaming||tab==='코드'?<MonacoEditor height="100%" language="typescript" path="GeneratedComponent.tsx" theme={MONACO_THEME} beforeMount={handleBeforeMount} onMount={handleEditorMount} value={code} onChange={streaming?undefined:handleChange} options={{...MONACO_OPTIONS,readOnly:streaming}} />:tab==='Diff'?renderDiffTab():renderVersionTab()}</div></section>
+  return (
+    <section aria-label="코드" className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-surface">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2">
+        <div role="tablist" aria-label="코드 보기" className="flex gap-1">
+          {(['코드', 'Diff', '버전'] as const).map((x) => (
+            <button
+              type="button"
+              key={x}
+              role="tab"
+              aria-selected={tab === x}
+              aria-controls={`editor-panel-${x}`}
+              onClick={() => setTab(x)}
+              className={cn(
+                'rounded-button px-3 py-2 text-sm',
+                tab === x ? 'border-b-2 border-brand-600 font-medium text-fg-brand' : 'text-fg-secondary',
+              )}
+            >
+              {x}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 text-xs text-fg-secondary">
+          <span>v{latestVersion}</span>
+          <Button variant="ghost" size="sm" aria-live="polite" onClick={handleCopy}>
+            <Copy aria-hidden="true" data-icon="inline-start" />
+            {copied ? '복사됨' : '복사하기'}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleDownload}>
+            <Download aria-hidden="true" data-icon="inline-start" />
+            다운로드하기
+          </Button>
+        </div>
+      </div>
+      <div className="min-h-0 flex-1">
+        <div
+          id="editor-panel-코드"
+          role="tabpanel"
+          aria-label="코드 패널"
+          hidden={!streaming && tab !== '코드'}
+          className="h-full overflow-hidden"
+        >
+          {(streaming || tab === '코드') && (
+            <MonacoEditor
+              height="100%"
+              language="typescript"
+              path="GeneratedComponent.tsx"
+              theme={MONACO_THEME}
+              beforeMount={handleBeforeMount}
+              value={code}
+              onChange={streaming ? undefined : handleChange}
+              options={{ ...MONACO_OPTIONS, readOnly: streaming }}
+            />
+          )}
+        </div>
+        <div
+          id="editor-panel-Diff"
+          role="tabpanel"
+          aria-label="Diff 패널"
+          hidden={streaming || tab !== 'Diff'}
+          className="h-full overflow-hidden"
+        >
+          {renderDiffTab()}
+        </div>
+        <div
+          id="editor-panel-버전"
+          role="tabpanel"
+          aria-label="버전 패널"
+          hidden={streaming || tab !== '버전'}
+          className="h-full overflow-y-auto p-4"
+        >
+          {renderVersionTab()}
+        </div>
+      </div>
+    </section>
+  )
 }
