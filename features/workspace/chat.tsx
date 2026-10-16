@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Send, Square } from 'lucide-react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import { Button } from '@/components/ui/button'
@@ -10,6 +11,7 @@ import { extractPartialCode } from '@/lib/code/extract-partial-code'
 import { useWorkspaceStore, type ChatMessage } from './workspace-store'
 import { useEnsureSession } from './use-ensure-session'
 import { useSaveMessage, useSaveVersion } from './use-session-mutations'
+import { versionListQueryKey } from './use-version-list'
 
 const QUICK_PROMPTS = ['회원가입 폼', '상품 카드', '삭제 확인 모달']
 const EDITOR_THROTTLE_MS = 100
@@ -37,6 +39,7 @@ export function Chat() {
   const { ensureSessionId } = useEnsureSession()
   const saveMessage = useSaveMessage()
   const saveVersion = useSaveVersion()
+  const queryClient = useQueryClient()
   const [requestText, setRequestText] = useState('')
   const [streamingText, setStreamingText] = useState('')
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -86,6 +89,7 @@ export function Chat() {
         kind: 'generate',
         sourceMessageId: messageId,
       })
+      queryClient.invalidateQueries({ queryKey: versionListQueryKey(sessionId) })
     } catch (error) {
       console.error('버전 저장 실패:', error)
     }
