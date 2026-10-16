@@ -31,3 +31,10 @@ export async function getVersionList(sessionId: string): Promise<VersionListItem
     createdAt: row.created_at as string,
   }))
 }
+
+export function getDefaultDiffVersions(versions: VersionListItem[]): { base: number | null; target: number | null } {
+  if (versions.length === 0) return { base: null, target: null }
+  const target = versions[0].version
+  const base = versions[1]?.version ?? versions[0].version
+  return { base, target }
+}

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
-import { getVersionList } from './version-list'
+import { getDefaultDiffVersions, getVersionList, type VersionListItem } from './version-list'
 
 vi.mock('@/lib/supabase/client', () => ({ createSupabaseBrowserClient: vi.fn() }))
 
@@ -78,5 +78,23 @@ describe('getVersionList', () => {
     mockCreateClient.mockReturnValue(supabase as never)
 
     await expect(getVersionList('session-1')).rejects.toEqual({ message: 'select failed' })
+  })
+})
+
+function item(version: number): VersionListItem {
+  return { id: `v${version}`, version, kind: 'generate', code: `code-${version}`, a11yScore: null, createdAt: '' }
+}
+
+describe('getDefaultDiffVersions', () => {
+  it('버전이 없으면 둘 다 null', () => {
+    expect(getDefaultDiffVersions([])).toEqual({ base: null, target: null })
+  })
+
+  it('버전이 1개면 base·target 둘 다 그 버전', () => {
+    expect(getDefaultDiffVersions([item(1)])).toEqual({ base: 1, target: 1 })
+  })
+
+  it('버전이 여러 개면(version desc 정렬 가정) 최신이 target, 그 전이 base', () => {
+    expect(getDefaultDiffVersions([item(3), item(2), item(1)])).toEqual({ base: 2, target: 3 })
   })
 })
