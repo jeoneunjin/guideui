@@ -207,7 +207,7 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   사이트는 안전함 — 이 상태를 실수로 안 풀리게 유지할 것. (`SUPABASE_URL`/
   `SUPABASE_SERVICE_ROLE_KEY`는 서버 전용·RLS 무관이라 이 규칙과 별개, #34 노트 참고.)
 
-### STAGE 4 · 세션 저장·버전 히스토리 진행 중 (5개 중 #35~#37 완료, #38·#39 남음)
+### STAGE 4 · 세션 저장·버전 히스토리 진행 중 (5개 중 #35~#38 완료, #39 남음)
 - #35 인증 방식 적용(Supabase 익명 로그인) — Next.js 16의 `proxy.ts`(옛 `middleware.ts`) +
   `lib/supabase/middleware.ts`의 `updateAnonymousSession()`이 요청마다 세션을 확인하고
   없으면 `signInAnonymously()`로 익명 유저를 발급, 쿠키(`sb-<ref>-auth-token`)로 세션을
@@ -259,5 +259,30 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   존재하지 않는 주소로 덮어써서 테스트 중엔 항상 네트워크 실패로 조용히 스킵되게 고침.
   이 버그로 그동안 쌓인 빈 테스트 세션 10개(메시지·버전 0개)는 실제 데이터(메시지 있는
   세션 4개)만 남기고 직접 정리해서 지움.
-- 다음은 #38(Diff 탭) — `editor.tsx`의 "Diff" 탭 하드코딩 더미를 Monaco DiffEditor로
-  교체하고 두 버전을 실제로 비교할 수 있게 만들 차례. STAGE 4 마지막은 #39(RLS 정책).
+- #38 Diff 탭(Monaco DiffEditor) — `editor.tsx`의 "Diff" 탭 하드코딩 더미를 실제
+  `DiffEditor`로 교체. 두 개의 버전 선택 드롭다운("이전 버전"/"이후 버전")으로 임의의
+  두 버전을 비교, 기본값은 최신 버전과 그 바로 전 버전(`getDefaultDiffVersions`,
+  `version-list.ts`). `#37`의 `useVersionList`가 이미 각 버전의 `code`까지 가져오고
+  있어서 새 쿼리 없이 재사용.
+  **Monaco 콘솔 에러를 세 번의 시도 끝에 구조적으로 해결함(과정을 기록해둠 — 비슷한 류의
+  버그를 또 만나면 참고)**: Diff 탭을 열 때 `Could not find source file:
+  'inmemory://model/N'`(Uncaught in promise, 기능엔 영향 없음) 에러 발견.
+  1차: 모델 재사용 옵션/고정 경로 — 효과 없음.
+  2차: Diff 탭 진입/이탈 시에만 TS 진단을 껐다 켜는 `useEffect` — 진입 시 에러는 막았지만
+  복원 시점이 모델 dispose와 같은 커밋 주기에 걸려서 "코드" 탭으로 돌아올 때 같은 에러가
+  다시 남(증상을 옮기기만 함, 실제 재현 테스트로 발견).
+  3차(최종): 탭 패널 구조를 "하나의 div가 내용을 swap"에서 "세 개의 상시 존재하는 패널
+  div, `hidden` 속성으로 토글"로 재설계해서 `DiffEditor`가 탭 전환으로 더 이상
+  언마운트되지 않게 함(부수적으로 비활성 탭의 `aria-controls`가 DOM에 없는 대상을
+  가리키던 기존 버그도 같이 고쳐짐). 그런데도 세션당 최초 1~2회는 에러가 남아서(모델
+  최초 생성-TS 워커 등록 사이에도 같은 레이스가 있었음), `getTypeScriptWorker()` 대기 +
+  추가 지연 같은 타이밍 기반 우회도 검토했지만 이 프로젝트가 이미 두 번(#31, #36) 겪은
+  "고정 지연으로 레이스를 땜질했다가 느린 환경에서 다시 깨진" 패턴을 반복하는 거라 기각,
+  `handleBeforeMount`에서 TS 진단(`noSemanticValidation` 등)을 아예 꺼서 진단 요청 자체가
+  안 나가게 함 — 타이밍과 무관하게 결정적으로 막힘. 생성된 코드의 컴파일 에러는 Sandpack이
+  별도로 보여주고 있어서 Monaco 자체 타입 체크(빨간 밑줄)를 잃는 손해는 작다고 판단.
+  코드→Diff→버전→Diff→코드 8번 전환(10초 대기 포함)으로 에러 0건 확인.
+- STAGE 4 마일스톤 이슈 5개 중 4개(#35~#38) 완료. 마지막 #39(RLS 정책 설정)만 남음 —
+  지금까지 `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`를 Vercel에 등록
+  안 한 이유가 바로 이 RLS 공백 때문이었으니(#36 노트 참고), #39가 끝나야 실제 배포 환경에
+  세션 저장 기능을 켤 수 있음.
