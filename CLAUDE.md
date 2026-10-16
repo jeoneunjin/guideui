@@ -207,7 +207,7 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   사이트는 안전함 — 이 상태를 실수로 안 풀리게 유지할 것. (`SUPABASE_URL`/
   `SUPABASE_SERVICE_ROLE_KEY`는 서버 전용·RLS 무관이라 이 규칙과 별개, #34 노트 참고.)
 
-### STAGE 4 · 세션 저장·버전 히스토리 진행 중 (5개 중 #35·#36 완료, #37~#39 남음)
+### STAGE 4 · 세션 저장·버전 히스토리 진행 중 (5개 중 #35~#37 완료, #38·#39 남음)
 - #35 인증 방식 적용(Supabase 익명 로그인) — Next.js 16의 `proxy.ts`(옛 `middleware.ts`) +
   `lib/supabase/middleware.ts`의 `updateAnonymousSession()`이 요청마다 세션을 확인하고
   없으면 `signInAnonymously()`로 익명 유저를 발급, 쿠키(`sb-<ref>-auth-token`)로 세션을
@@ -239,5 +239,25 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   걸 발견 — 300ms 고정 지연 뒤 응답을 한 번에 fulfill하는 구조라 "중단하기" 버튼이 활성화된
   시간이 딱 300ms뿐이었던 레이스였음, 응답을 테스트가 중단 버튼을 누를 때까지 영원히 멈춰
   두는 방식으로 고쳐서 레이스 자체를 제거함(#36 범위 밖이지만 머지 전제조건이라 같이 고침).
-- 다음은 #37(버전 목록 및 되돌리기) — `editor.tsx`의 "버전" 탭 더미 리스트를 실제
-  `component_versions` 데이터로 교체하고 되돌리기 기능을 붙일 차례.
+- #37 버전 목록 및 되돌리기 — `editor.tsx`의 "버전" 탭 하드코딩 더미 리스트를 실제
+  `component_versions` 데이터로 교체. `features/workspace/version-list.ts`(순수 쿼리 함수)
+  + `use-version-list.ts`(TanStack Query `useQuery` 래퍼 — 이 저장소 첫 `useQuery`
+  사용례, #36까지는 mutation만 있었음)로 조회. "되돌리기"는 옛 버전 코드를
+  `kind: 'manual'`로 새 버전에 append하는 방식(히스토리를 덮어쓰지 않음, git revert와
+  같은 원칙) — `saveVersion`(#36에서 만든 mutation)을 그대로 재사용해서 새 persistence
+  함수가 따로 필요 없었음. 현재 버전(목록 맨 위)엔 되돌리기 버튼을 안 보여주고, 스트리밍·
+  저장 중엔 비활성화. 헤더의 "v3 · AI 수정" 하드코딩은 `v{latestVersion}`로 단순화(각
+  행에 이미 kind가 표시되니 헤더까지 정확히 맞추려고 별도 상태 추가하는 건 과설계로 판단).
+  상대 시간 포맷 유틸(`lib/format-relative-time.ts`, "N분/시간/일 전")도 이 PR에서 신규.
+  실제 Supabase로 검증하던 중 버그 2개 발견해 같이 고침: (1) `chat.tsx`가 채팅으로 새
+  버전을 저장한 뒤 버전 목록 쿼리 캐시를 무효화 안 해서, 새로고침 전까진 "버전" 탭에
+  새 버전이 안 보이던 문제 — `queryClient.invalidateQueries` 추가. (2)
+  `playwright.config.ts`의 `test:a11y` `webServer`가 로컬 `.env.local`의 실제 Supabase
+  키를 그대로 상속해서, 로컬에서 접근성 테스트를 돌릴 때마다 운영 DB에 빈 테스트 세션이
+  계속 쌓이고 있었음(CI는 해당 env var 자체가 없어서 영향 없었음, 로컬 전용 문제) —
+  `env -u`로 지워도 Next.js가 `.env.local`에서 다시 채워 넣어서 안 먹히는 걸 확인하고,
+  존재하지 않는 주소로 덮어써서 테스트 중엔 항상 네트워크 실패로 조용히 스킵되게 고침.
+  이 버그로 그동안 쌓인 빈 테스트 세션 10개(메시지·버전 0개)는 실제 데이터(메시지 있는
+  세션 4개)만 남기고 직접 정리해서 지움.
+- 다음은 #38(Diff 탭) — `editor.tsx`의 "Diff" 탭 하드코딩 더미를 Monaco DiffEditor로
+  교체하고 두 버전을 실제로 비교할 수 있게 만들 차례. STAGE 4 마지막은 #39(RLS 정책).
