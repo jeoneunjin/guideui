@@ -9,8 +9,11 @@ import { Progress } from '@/components/ui/progress'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { formatRelativeTime } from '@/lib/format-relative-time'
+import { guideFileSchema } from '@/lib/schemas/guide-upload'
 import { PageHeader } from '@/features/landing/page-header'
 import { chunkRows, documents, type Doc, type DocStatus } from '@/mocks/guides'
+import { useUploadGuideDocument } from './use-guide-mutations'
 
 function StatusBadge({ status }: { status: DocStatus }) {
   if (status === 'done') return <span className="inline-flex items-center gap-1.5 rounded-full border border-line px-2 py-1 text-sm text-success-700"><Check aria-hidden="true" className="size-4" />처리 완료</span>
@@ -24,13 +27,34 @@ export function GuidesPage({ state: requestedState }: { state?: string }) {
   const [deleteDoc, setDeleteDoc] = useState<Doc | null>(null)
   const [liveMessage, setLiveMessage] = useState('')
   const [docList, setDocList] = useState(documents)
+  const [isDraggingOver, setIsDraggingOver] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const activeDocs = useMemo(() => state === 'empty' ? [] : docList, [docList, state])
   const uploading = state === 'uploading'
+  const uploadMutation = useUploadGuideDocument()
 
-  function handleFiles(files: FileList | null) {
+  async function handleFiles(files: FileList | null) {
     if (!files?.length) return
-    setLiveMessage(`${files.length}개 문서를 업로드하기 시작했어요.`)
+
+    for (const file of Array.from(files)) {
+      const parsed = guideFileSchema.safeParse(file)
+      if (!parsed.success) {
+        setLiveMessage(`${file.name}: ${parsed.error.issues[0]?.message ?? '올릴 수 없는 파일이에요.'}`)
+        continue
+      }
+
+      try {
+        const uploaded = await uploadMutation.mutateAsync(file)
+        setDocList((current) => [
+          ...current,
+          { name: uploaded.name, status: 'processing', modified: formatRelativeTime(uploaded.modified) },
+        ])
+        setLiveMessage(`${uploaded.name}을 올렸어요. 처리 중이에요.`)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '가이드 문서를 올리지 못했어요.'
+        setLiveMessage(`${file.name}: ${message}`)
+      }
+    }
   }
 
   return <AppShell activeNav="가이드 관리">
@@ -38,7 +62,20 @@ export function GuidesPage({ state: requestedState }: { state?: string }) {
  className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-8">
       <PageHeader title="가이드 관리" description="컴포넌트를 생성할 때 참고할 디자인 가이드 문서를 관리해요." actions={<><span className="text-sm text-fg-secondary">Sample DS · 문서 {activeDocs.length}개</span><Button type="button" className="bg-brand-600 text-fg-inverse hover:bg-brand-600/90" onClick={() => fileRef.current?.click()}><Upload aria-hidden="true" data-icon="inline-start" />문서 올리기</Button></>} />
 
-      <section aria-labelledby="upload-title" className="flex flex-col gap-3"><h2 id="upload-title" className="sr-only">가이드 문서 올리기</h2><label htmlFor="guide-file" className="group flex min-h-36 flex-col items-center justify-center gap-2 rounded-card border border-dashed border-line-input bg-surface px-4 text-center focus-within:ring-2 focus-within:ring-line-focus focus-within:ring-offset-2 peer-focus-visible:ring-2 peer-focus-visible:ring-line-focus peer-focus-visible:ring-offset-2"><FileText aria-hidden="true" className="size-6 text-fg-muted" /><span className="text-base font-medium">Markdown(.md) 파일을 끌어다 놓거나 선택해 주세요</span><span className="text-sm text-fg-muted">파일당 1MB 이하 · 헤딩(#, ##) 기준으로 나눠 저장해요</span><input ref={fileRef} id="guide-file" type="file" accept=".md,text/markdown" multiple className="peer sr-only" onChange={(event) => handleFiles(event.target.files)} /></label></section>
+      <section aria-labelledby="upload-title" className="flex flex-col gap-3"><h2 id="upload-title" className="sr-only">가이드 문서 올리기</h2><label
+        htmlFor="guide-file"
+        onDragOver={(event) => { event.preventDefault(); setIsDraggingOver(true) }}
+        onDragLeave={() => setIsDraggingOver(false)}
+        onDrop={(event) => {
+          event.preventDefault()
+          setIsDraggingOver(false)
+          handleFiles(event.dataTransfer.files)
+        }}
+        className={cn(
+          'group flex min-h-36 flex-col items-center justify-center gap-2 rounded-card border border-dashed border-line-input bg-surface px-4 text-center focus-within:ring-2 focus-within:ring-line-focus focus-within:ring-offset-2 peer-focus-visible:ring-2 peer-focus-visible:ring-line-focus peer-focus-visible:ring-offset-2',
+          isDraggingOver && 'border-brand-600 bg-brand-50',
+        )}
+      ><FileText aria-hidden="true" className="size-6 text-fg-muted" /><span className="text-base font-medium">Markdown(.md) 파일을 끌어다 놓거나 선택해 주세요</span><span className="text-sm text-fg-muted">파일당 1MB 이하 · 헤딩(#, ##) 기준으로 나눠 저장해요</span><input ref={fileRef} id="guide-file" type="file" accept=".md,text/markdown" multiple className="peer sr-only" onChange={(event) => handleFiles(event.target.files)} /></label></section>
 
       {state === 'empty' && <section className="flex flex-col gap-3 border border-line bg-surface p-6" aria-labelledby="empty-title"><h2 id="empty-title" className="text-base font-bold">아직 올린 가이드가 없어요.</h2><p className="text-sm text-fg-secondary">샘플 가이드로 먼저 체험해 보거나 팀 문서를 올려 주세요.</p><Button type="button" variant="outline" className="w-fit">샘플 불러오기</Button></section>}
 
