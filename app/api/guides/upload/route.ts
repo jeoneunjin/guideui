@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { guideFileSchema } from '@/lib/schemas/guide-upload'
+import { processGuideDocument } from '@/lib/rag/process-document'
 
 async function getOrCreateDemoGuideSetId(supabase: ReturnType<typeof createSupabaseAdminClient>) {
   if (!supabase) return null
@@ -64,6 +65,8 @@ export async function POST(req: Request) {
       status: 'processing',
     })
     if (insertError) throw insertError
+
+    after(() => processGuideDocument(documentId))
 
     return NextResponse.json({
       id: documentId,

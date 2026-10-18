@@ -53,7 +53,7 @@ create table guide_chunks (
   heading_path text,
   content text not null,
   token_count int,
-  embedding vector(768) -- Gemini text-embedding-004 기준. 모델을 바꾸면 전체 재임베딩 필요.
+  embedding vector(768) -- Gemini gemini-embedding-001 기준(outputDimensionality: 768로 축소 요청, lib/llm.ts 참고). 모델을 바꾸면 전체 재임베딩 필요.
 );
 create index on guide_chunks using hnsw (embedding vector_cosine_ops);
 
