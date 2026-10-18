@@ -344,6 +344,33 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   목록에 "처리 중" 즉시 추가, `.txt`/1MB 초과 파일 거부 확인, `guide_documents` 행·Storage
   객체 실제 생성 확인(검증 후 정리). Vercel 프리뷰(Supabase 키 미등록 상태)에서는 업로드 시도
   시 "가이드 저장소가 설정돼 있지 않아요"로 크래시 없이 처리되는 것까지 확인.
-- 다음은 #42(임베딩 생성·저장 및 처리 상태 관리). `NEXT_PUBLIC_SUPABASE_URL`/
+- #42 임베딩 생성·저장 및 처리 상태 관리 — `app/api/guides/upload/route.ts`가 응답 직전
+  `after(() => processGuideDocument(documentId))`로 백그라운드 처리를 건다(#34의
+  `logUsage`와 같은 fire-and-forget 패턴). `lib/rag/process-document.ts`(신규)의
+  `processGuideDocument(documentId)`가 Storage에서 원본 재다운로드 → `chunkMarkdown`(#41)
+  → `embedMany`로 배치 임베딩 → `guide_chunks` insert → `status: ready`, 어느 단계든
+  실패하면 `status: failed`(에러 메시지 컬럼은 없음, UI가 이미 고정 문구를 보여주고 있어서
+  추가 안 함). 임베딩 입력 텍스트는 `headingPath + content`를 합친 것(검색 문맥 보존,
+  #41 설계와 동일 이유)이지만 `guide_chunks.content`엔 본문만 저장(#44 청크 미리보기가
+  헤딩 중복 없이 깔끔하게 보이도록). `lib/llm.ts`에 `getGenerationModel()`과 같은 모양의
+  `getEmbeddingModel()`을 추가(mock/gemini 분기) — mock은 텍스트를 시드로 쓰는 LCG로
+  결정적 768차원 가짜 벡터를 반환해서 API 키 없이도 파이프라인 전체(끝까지 `status: ready`로
+  떨어지는 것까지)를 테스트할 수 있게 함. **계획 중 실제 라이브 호출로 발견한 문제**:
+  `guide_chunks.embedding vector(768)` 컬럼 주석이 가리키던 `text-embedding-004` 모델이
+  단종됨(`models/text-embedding-004 is not found ... or is not supported for
+  embedContent`) — `ListModels`로 확인한 실제 사용 가능 모델은 `gemini-embedding-001`/`-2`/
+  `-2-preview`뿐이라 `gemini-embedding-001`로 교체. 이 모델 기본 출력은 3072차원이지만
+  `embed`/`embedMany` 호출 시 `providerOptions: { google: { outputDimensionality: 768,
+  taskType: 'RETRIEVAL_DOCUMENT' } }`를 주면 정확히 768차원으로 받을 수 있어서(라이브 확인)
+  DB 컬럼은 안 바꾸고 호출 옵션(`lib/llm.ts`의 `GUIDE_EMBEDDING_PROVIDER_OPTIONS`, 호출부가
+  재사용하도록 export)과 마이그레이션 주석만 정정(`-- gemini-embedding-001 기준...`).
+  `outputDimensionality`/`taskType`은 `.embeddingModel(modelId)` 생성 시점엔 못 주고
+  호출 시점 providerOptions로만 가능(라이브 확인) — 검색 질의 임베딩은 `taskType:
+  RETRIEVAL_QUERY`를 써야 함(비대칭 임베딩), STAGE 6에서 연결 예정. 실제 Supabase +
+  실제 Gemini API로 end-to-end 검증: `LLM_PROVIDER=gemini`/`mock` 각각 업로드 →
+  `status: ready` + `guide_chunks`에 768차원 임베딩 확인, 청크 0개 되는 문서(frontmatter만
+  있는 경우)는 `status: failed`로 떨어지는 것까지 확인(검증 후 테스트 데이터 정리).
+- 다음은 #43(문서 목록 상태 polling 및 재업로드) — `docList`를 실제 DB 조회로 바꾸고
+  `status: processing → ready/failed` 전환이 화면에 반영되게 할 차례. `NEXT_PUBLIC_SUPABASE_URL`/
   `NEXT_PUBLIC_SUPABASE_ANON_KEY`를 Vercel에 등록하는 건 이제 안전하지만(위 "보안 규칙"
   참고) 여전히 별도 배포 단계 — 지금 등록 안 함.
