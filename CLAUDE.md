@@ -322,9 +322,28 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   `### 규칙` 서브섹션이 의미 없는 1~2줄 청크로 단독 저장됨). 테스트 8개(`lib/rag/chunk.test.ts`):
   헤딩 없는 문서, 코드 블록 혼합, 긴 섹션 재분할+겹침, H1→H2 dedup, H2→H3 중첩, 짧은 섹션
   병합, frontmatter 제거, 실제 `sample-guide/button.md` 통합 테스트.
-- 다음은 #40(가이드 업로드 UI 및 파일 검증) — `.md` 파일 형식·크기 제한만 Zod로 검증, 본문
-  구조(헤딩 컨벤션 등)는 강제하지 않음. `/guides` 화면에 지금 보이는 업로드 영역·문서 목록·
-  처리 상태·청크 개수는 전부 #7 때 가져온 v0 목업(`mocks/`) 데이터이고 아직 실제 데이터에
-  연결 안 됨 — #40·#42·#43이 실제로 붙여야 할 부분.
-  `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`를 Vercel에 등록하는 건
-  이제 안전하지만(위 "보안 규칙" 참고) 여전히 별도 배포 단계 — 지금 등록 안 함.
+- #40 가이드 업로드 UI 및 파일 검증 — `/guides`의 장식용 업로드 영역(드래그앤드롭 핸들러
+  없음, `onChange`만 있던 상태)을 실제로 연결. `lib/schemas/guide-upload.ts`의
+  `guideFileSchema`(`.md` 확장자·빈 파일 아님·1MB 이하)를 클라이언트(`guides-page.tsx`의
+  `handleFiles`, 실패 시 네트워크 요청 자체를 안 보냄)와 서버(`app/api/guides/upload/route.ts`,
+  신뢰 경계이므로 반드시 재검증)가 같은 소스로 import. `.md`만 허용하는 이유: `chunkMarkdown`
+  (#41)이 마크다운 헤딩 문법에 의존하는 구조라 PDF·docx는 "검증 조건 추가"가 아니라 "별도
+  파서 신설"이 되는 다른 크기의 작업 — 기획서 STAGE 5 범위에도 `.md`만 명시돼 있었음.
+  **설계상 중요한 전제**: `guide_sets`/`guide_documents`는 #39에서 RLS만 켜고 정책을 안
+  만들어서 anon key로 select/insert가 전부 막혀있음 — STAGE 4가 썼던 "브라우저가 직접
+  Supabase insert" 패턴을 못 씀. 그래서 서버 API 라우트가 `lib/supabase/admin.ts`(신규,
+  `lib/usage-log.ts`가 쓰던 인라인 service-role 클라이언트 생성을 뽑아서 공유화)로 Storage
+  업로드와 DB insert를 전담 — RLS 정책을 전혀 새로 설계할 필요가 없어짐(storage.objects도
+  같은 이유로 정책 없이 버킷만 비공개로 생성, `supabase/migrations/
+  20261017095751_guide_storage_bucket.sql`). 업로드 라우트는 데모 guide_set을
+  find-or-create로 처리해서 #45(시드 스크립트)가 아직 없어도 이 이슈 혼자 테스트 가능하게
+  설계. 이 이슈는 "업로드 → Storage 저장 → `status: processing` 행 생성"까지만 — 청킹 실행·
+  임베딩·`status: ready/failed` 전환은 #42, 문서 목록 실제 조회·polling·재업로드는 #43
+  범위라 `docList`는 여전히 mock 8개로 시작하고 업로드 성공 시에만 로컬에 추가(세션 저장 때
+  #36=쓰기 먼저, #37=읽기 나중이었던 것과 같은 분리). 실제 Supabase로 검증: 정상 업로드 →
+  목록에 "처리 중" 즉시 추가, `.txt`/1MB 초과 파일 거부 확인, `guide_documents` 행·Storage
+  객체 실제 생성 확인(검증 후 정리). Vercel 프리뷰(Supabase 키 미등록 상태)에서는 업로드 시도
+  시 "가이드 저장소가 설정돼 있지 않아요"로 크래시 없이 처리되는 것까지 확인.
+- 다음은 #42(임베딩 생성·저장 및 처리 상태 관리). `NEXT_PUBLIC_SUPABASE_URL`/
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY`를 Vercel에 등록하는 건 이제 안전하지만(위 "보안 규칙"
+  참고) 여전히 별도 배포 단계 — 지금 등록 안 함.
