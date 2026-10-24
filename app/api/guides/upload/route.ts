@@ -2,27 +2,7 @@ import { NextResponse, after } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { guideFileSchema } from '@/lib/schemas/guide-upload'
 import { processGuideDocument } from '@/lib/rag/process-document'
-
-async function getOrCreateDemoGuideSetId(supabase: ReturnType<typeof createSupabaseAdminClient>) {
-  if (!supabase) return null
-
-  const { data: existing, error: selectError } = await supabase
-    .from('guide_sets')
-    .select('id')
-    .eq('is_demo', true)
-    .limit(1)
-    .maybeSingle()
-  if (selectError) throw selectError
-  if (existing) return existing.id as string
-
-  const { data: created, error: insertError } = await supabase
-    .from('guide_sets')
-    .insert({ name: 'Sample DS', is_demo: true })
-    .select('id')
-    .single()
-  if (insertError) throw insertError
-  return created.id as string
-}
+import { getOrCreateDemoGuideSetId } from '@/lib/rag/demo-guide-set'
 
 export async function POST(req: Request) {
   let formData: FormData
@@ -38,12 +18,53 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? '파일이 올바르지 않아요.' }, { status: 400 })
   }
 
+  const replaceDocumentId = formData.get('documentId')
+  const documentIdToReplace = typeof replaceDocumentId === 'string' && replaceDocumentId ? replaceDocumentId : null
+
   const supabase = createSupabaseAdminClient()
   if (!supabase) {
     return NextResponse.json({ error: '가이드 저장소가 설정돼 있지 않아요.' }, { status: 500 })
   }
 
   try {
+    if (documentIdToReplace) {
+      const { data: existing, error: selectError } = await supabase
+        .from('guide_documents')
+        .select('id, storage_path')
+        .eq('id', documentIdToReplace)
+        .maybeSingle()
+      if (selectError) throw selectError
+      if (!existing) {
+        return NextResponse.json({ error: '재업로드할 문서를 찾을 수 없어요.' }, { status: 404 })
+      }
+
+      const { error: deleteChunksError } = await supabase
+        .from('guide_chunks')
+        .delete()
+        .eq('document_id', documentIdToReplace)
+      if (deleteChunksError) throw deleteChunksError
+
+      const { error: uploadError } = await supabase.storage
+        .from('guide-documents')
+        .upload(existing.storage_path, parsed.data, { contentType: 'text/markdown', upsert: true })
+      if (uploadError) throw uploadError
+
+      const { error: updateError } = await supabase
+        .from('guide_documents')
+        .update({ title: parsed.data.name, status: 'processing' })
+        .eq('id', documentIdToReplace)
+      if (updateError) throw updateError
+
+      after(() => processGuideDocument(documentIdToReplace))
+
+      return NextResponse.json({
+        id: documentIdToReplace,
+        name: parsed.data.name,
+        status: 'processing',
+        modified: new Date().toISOString(),
+      })
+    }
+
     const guideSetId = await getOrCreateDemoGuideSetId(supabase)
     if (!guideSetId) {
       return NextResponse.json({ error: '가이드 저장소가 설정돼 있지 않아요.' }, { status: 500 })
