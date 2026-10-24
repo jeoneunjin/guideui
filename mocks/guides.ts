@@ -1,15 +1,15 @@
 export type DocStatus = 'done' | 'processing' | 'failed'
-export type Doc = { name: string; status: DocStatus; chunks?: number; rules?: number; modified: string }
+export type Doc = { id: string; name: string; status: DocStatus; chunks?: number; rules?: number; modified: string }
 
 export const documents: Doc[] = [
-  { name: 'tokens.md', status: 'done', chunks: 11, rules: 12, modified: '9월 24일 오후 2:10' },
-  { name: 'button.md', status: 'done', chunks: 8, rules: 9, modified: '9월 24일 오후 2:10' },
-  { name: 'form.md', status: 'processing', modified: '방금 전' },
-  { name: 'card.md', status: 'done', chunks: 7, rules: 7, modified: '9월 24일 오후 2:11' },
-  { name: 'navigation.md', status: 'done', chunks: 8, rules: 7, modified: '9월 24일 오후 2:11' },
-  { name: 'modal.md', status: 'done', chunks: 6, rules: 7, modified: '9월 24일 오후 2:11' },
-  { name: 'accessibility.md', status: 'failed', modified: '9월 24일 오후 2:12' },
-  { name: 'writing.md', status: 'done', chunks: 9, rules: 7, modified: '9월 24일 오후 2:12' },
+  { id: 'tokens', name: 'tokens.md', status: 'done', chunks: 11, rules: 12, modified: '9월 24일 오후 2:10' },
+  { id: 'button', name: 'button.md', status: 'done', chunks: 8, rules: 9, modified: '9월 24일 오후 2:10' },
+  { id: 'form', name: 'form.md', status: 'processing', modified: '방금 전' },
+  { id: 'card', name: 'card.md', status: 'done', chunks: 7, rules: 7, modified: '9월 24일 오후 2:11' },
+  { id: 'navigation', name: 'navigation.md', status: 'done', chunks: 8, rules: 7, modified: '9월 24일 오후 2:11' },
+  { id: 'modal', name: 'modal.md', status: 'done', chunks: 6, rules: 7, modified: '9월 24일 오후 2:11' },
+  { id: 'accessibility', name: 'accessibility.md', status: 'failed', modified: '9월 24일 오후 2:12' },
+  { id: 'writing', name: 'writing.md', status: 'done', chunks: 9, rules: 7, modified: '9월 24일 오후 2:12' },
 ]
 
 export const chunkRows = [

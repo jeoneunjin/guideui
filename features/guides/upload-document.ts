@@ -5,9 +5,16 @@ export type UploadedGuideDocument = {
   modified: string
 }
 
-export async function uploadGuideDocument(file: File): Promise<UploadedGuideDocument> {
+export async function uploadGuideDocument({
+  file,
+  replaceDocumentId,
+}: {
+  file: File
+  replaceDocumentId?: string
+}): Promise<UploadedGuideDocument> {
   const formData = new FormData()
   formData.append('file', file)
+  if (replaceDocumentId) formData.append('documentId', replaceDocumentId)
 
   const res = await fetch('/api/guides/upload', { method: 'POST', body: formData })
   const body = await res.json()
