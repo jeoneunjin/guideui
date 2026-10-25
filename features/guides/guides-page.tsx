@@ -16,6 +16,7 @@ import { PageHeader } from '@/features/landing/page-header'
 import { chunkRows, documents, type Doc, type DocStatus } from '@/mocks/guides'
 import { useDeleteGuideDocument, useUploadGuideDocument } from './use-guide-mutations'
 import { guideDocumentsQueryKey, useGuideDocuments } from './use-guide-documents'
+import { useGuideChunks } from './use-guide-chunks'
 
 function StatusBadge({ status }: { status: DocStatus }) {
   if (status === 'done') return <span className="inline-flex items-center gap-1.5 rounded-full border border-line px-2 py-1 text-sm text-success-700"><Check aria-hidden="true" className="size-4" />처리 완료</span>
@@ -58,6 +59,20 @@ export function GuidesPage({ state: requestedState }: { state?: string }) {
   const activeDocs = isMockState ? (mockState === 'empty' ? [] : docList) : realDocs
   const uploading = isMockState && mockState === 'uploading'
   const showEmptyState = isMockState ? mockState === 'empty' : !documentsQuery.isLoading && realDocs.length === 0
+
+  const chunksQuery = useGuideChunks(!isMockState && selectedChunk ? selectedChunk.id : null)
+  const chunkPreviewRows = useMemo(() => {
+    if (isMockState) {
+      return chunkRows.map((chunk) => ({ key: chunk.path, path: chunk.path, tokens: chunk.tokens, rules: chunk.rules, lines: chunk.text }))
+    }
+    return (chunksQuery.data ?? []).map((chunk) => ({
+      key: chunk.id,
+      path: chunk.path,
+      tokens: chunk.tokenCount,
+      rules: chunk.rules,
+      lines: chunk.content.split('\n\n').map((line) => line.trim()).filter(Boolean),
+    }))
+  }, [isMockState, chunksQuery.data])
 
   async function handleFiles(files: FileList | null) {
     if (!files?.length) return
@@ -143,7 +158,11 @@ export function GuidesPage({ state: requestedState }: { state?: string }) {
       </section>}
     </div>
 
-    <Sheet open={Boolean(selectedChunk)} onOpenChange={(open) => !open && setSelectedChunk(null)}><SheetContent side="right" className="w-full overflow-y-auto bg-surface sm:max-w-lg"><SheetHeader><SheetTitle>{selectedChunk?.name} 청크 {selectedChunk?.chunks}개</SheetTitle></SheetHeader><div className="flex flex-col gap-4 p-4">{chunkRows.map((chunk) => <article key={chunk.path} className="flex flex-col gap-3 border border-line p-4"><div className="flex items-start justify-between gap-4"><h3 className="text-sm font-bold">{chunk.path}</h3><span className="shrink-0 text-sm text-fg-muted">{chunk.tokens} 토큰</span></div><div className="flex flex-wrap gap-1">{chunk.rules.map((rule) => <span key={rule} className="rounded-full border border-line px-2 py-0.5 text-xs font-medium text-fg-secondary">{rule}</span>)}</div><p className="text-sm text-fg-secondary">{chunk.text.map((line) => <span key={line} className="block">{line}</span>)}</p></article>)}</div></SheetContent></Sheet>
+    <Sheet open={Boolean(selectedChunk)} onOpenChange={(open) => !open && setSelectedChunk(null)}><SheetContent side="right" className="w-full overflow-y-auto bg-surface sm:max-w-lg"><SheetHeader><SheetTitle>{selectedChunk?.name} 청크 {selectedChunk?.chunks}개</SheetTitle></SheetHeader><div className="flex flex-col gap-4 p-4">
+      {!isMockState && chunksQuery.isLoading && <p className="text-sm text-fg-secondary">불러오는 중이에요.</p>}
+      {!isMockState && chunksQuery.isError && <p className="text-sm text-danger-700">청크를 불러오지 못했어요.</p>}
+      {chunkPreviewRows.map((chunk) => <article key={chunk.key} className="flex flex-col gap-3 border border-line p-4"><div className="flex items-start justify-between gap-4"><h3 className="text-sm font-bold">{chunk.path}</h3><span className="shrink-0 text-sm text-fg-muted">{chunk.tokens} 토큰</span></div><div className="flex flex-wrap gap-1">{chunk.rules.map((rule) => <span key={rule} className="rounded-full border border-line px-2 py-0.5 text-xs font-medium text-fg-secondary">{rule}</span>)}</div><p className="text-sm text-fg-secondary">{chunk.lines.map((line, i) => <span key={i} className="block whitespace-pre-wrap">{line}</span>)}</p></article>)}
+    </div></SheetContent></Sheet>
     <Dialog open={Boolean(deleteDoc)} onOpenChange={(open) => !open && setDeleteDoc(null)}><DialogContent role="dialog" aria-modal="true" aria-labelledby="delete-title"><DialogHeader><DialogTitle id="delete-title">{deleteDoc?.name}를 삭제할까요?</DialogTitle><DialogDescription>삭제하면 이 문서의 청크가 모두 지워지고, 이후 생성에 반영되지 않아요.</DialogDescription></DialogHeader><DialogFooter><Button type="button" variant="outline" onClick={() => setDeleteDoc(null)}>취소</Button><Button type="button" variant="destructive" onClick={handleDelete}>삭제하기</Button></DialogFooter><button type="button" aria-label="닫기" onClick={() => setDeleteDoc(null)} className="absolute right-4 top-4 rounded-button p-2 text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line-focus"><X aria-hidden="true" /></button></DialogContent></Dialog>
   </AppShell>
 }
