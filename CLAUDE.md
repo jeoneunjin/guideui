@@ -386,7 +386,24 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   쓰고 그 외엔 전부 실제 데이터(#10의 dev-state 패턴 유지). 실제 Supabase + 실제 Gemini
   API로 end-to-end 검증: 업로드 → polling으로 ready 전환 후 자동 정지, 삭제 → 새로고침해도
   안 돌아옴, 실패 문서 재업로드 → 같은 document id로 상태·청크만 교체(중복 없음) 확인.
-- 다음은 #44(청크 미리보기 시트)·#45(샘플 가이드 시드 스크립트) — STAGE 5 마일스톤에
-  아직 OPEN으로 남은 마지막 두 이슈. `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`를
-  Vercel에 등록하는 건 이제 안전하지만(위 "보안 규칙" 참고) 여전히 별도 배포 단계 — 지금
-  등록 안 함.
+- #44 청크 미리보기 시트 — `guides-page.tsx`의 "청크 보기" Sheet가 문서와 무관하게 항상
+  `mocks/guides.ts`의 하드코딩된 `chunkRows` 3개만 보여주던 걸 실제 `guide_chunks` 데이터로
+  연결. 신규 `app/api/guides/[id]/chunks/route.ts`(GET)가 `guide_chunks`를 `id` 오름차순
+  (= `process-document.ts`가 단일 insert로 넣은 원본 문서 순서, 별도 순서 컬럼 추가 안 함)으로
+  조회해서 `{ id, path(heading_path, 빈 값이면 '본문'), content, tokenCount, rules }` 반환.
+  `rules`는 저장 안 하고 `extractRuleIds`(#43)를 청크 단위로 그때그때 재계산. 응답엔
+  `embedding` 컬럼 제외(768차원 벡터를 UI가 안 써서 payload만 커짐). `features/guides/
+  list-chunks.ts`(fetch 래퍼) + `use-guide-chunks.ts`(TanStack Query, Sheet 열렸을 때만
+  `enabled`) 신규. `guides-page.tsx`는 mock 상태(`?state=`)일 땐 기존 `chunkRows` 유지,
+  실제 상태일 땐 새 훅 사용 — 두 경로를 같은 모양(`{key,path,tokens,rules,lines}`)으로
+  매핑해 Sheet JSX 자체는 분기 없이 하나만 유지. 실제 Supabase로 `sample-guide/button.md`를
+  임시 업로드해 브라우저에서 직접 검증(청크 7개·규칙 9개 `BTN-01~09`까지 정확히 표시,
+  검증 후 테스트 문서 삭제), mock 상태 회귀 없음도 확인. **머지 전 발견**: 이 PR의 Vercel
+  프리뷰에서는 `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`가 Vercel에 미등록이라(#34 노트와
+  동일 원인) `/api/guides`가 500을 내는데, 화면은 에러 문구 없이 "아직 올린 가이드가 없어요."
+  빈 상태로 조용히 떨어짐(#40이 의도한 "크래시 없이 처리" 패턴이 목록 조회에도 적용된
+  결과) — 버그로 보고 고치진 않았지만, Vercel 프리뷰에서는 이런 이유로 실데이터 기능
+  검증이 원천적으로 안 된다는 걸 기록해둠. 실제 기능 검증은 로컬 + 실제 Supabase로만 가능.
+- 다음은 #45(샘플 가이드 시드 스크립트) — STAGE 5 마일스톤에 마지막으로 남은 이슈.
+  `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`를 Vercel에 등록하는 건 이제
+  안전하지만(위 "보안 규칙" 참고) 여전히 별도 배포 단계 — 지금 등록 안 함.
