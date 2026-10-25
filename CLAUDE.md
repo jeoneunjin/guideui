@@ -370,7 +370,23 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   실제 Gemini API로 end-to-end 검증: `LLM_PROVIDER=gemini`/`mock` 각각 업로드 →
   `status: ready` + `guide_chunks`에 768차원 임베딩 확인, 청크 0개 되는 문서(frontmatter만
   있는 경우)는 `status: failed`로 떨어지는 것까지 확인(검증 후 테스트 데이터 정리).
-- 다음은 #43(문서 목록 상태 polling 및 재업로드) — `docList`를 실제 DB 조회로 바꾸고
-  `status: processing → ready/failed` 전환이 화면에 반영되게 할 차례. `NEXT_PUBLIC_SUPABASE_URL`/
-  `NEXT_PUBLIC_SUPABASE_ANON_KEY`를 Vercel에 등록하는 건 이제 안전하지만(위 "보안 규칙"
-  참고) 여전히 별도 배포 단계 — 지금 등록 안 함.
+- #43 문서 목록 상태 polling 및 재업로드 — `app/api/guides/route.ts`(GET)가 데모 guide_set의
+  문서 목록 + 청크 개수 + 규칙 개수(정규식 추출, 신규 `lib/rag/rule-ids.ts`)를 반환하도록
+  만들어서 STAGE 5 내내 남아있던 mock `docList` 8개를 제거. `features/guides/
+  use-guide-documents.ts`의 `useGuideDocuments`가 **처리 중(`status: processing`)인 문서가
+  하나라도 있을 때만** 2초 간격으로 polling하고 전부 끝나면 자동 정지(불필요한 요청 방지).
+  `app/api/guides/[id]/route.ts`(DELETE)로 삭제 버튼을 실제 삭제에 연결 — `guide_chunks`는
+  `on delete cascade`로 같이 삭제, Storage 원본도 같이 제거. 원래 체크리스트엔 없었지만,
+  로컬 상태만 지우는 식으로 하면 다음 polling에서 서버 데이터가 그대로 다시 나타나는 회귀가
+  실제 테스트 중 발견돼서 이 이슈 범위에 포함(작아서 같은 PR, 커밋은 분리). 재업로드(실패한
+  문서 다시 올리기)는 업로드 라우트(`app/api/guides/upload/route.ts`)가 `documentId`를
+  FormData로 같이 받으면 "교체" 경로로 분기 — 기존 청크를 지우고 같은 storage_path에 upsert,
+  status를 다시 `processing`으로 돌려 `processGuideDocument`(#42)를 재실행, 같은 document id를
+  유지해서 행이 늘어나지 않음. `guides-page.tsx`의 `?state=`는 명시적으로 줬을 때만 mock을
+  쓰고 그 외엔 전부 실제 데이터(#10의 dev-state 패턴 유지). 실제 Supabase + 실제 Gemini
+  API로 end-to-end 검증: 업로드 → polling으로 ready 전환 후 자동 정지, 삭제 → 새로고침해도
+  안 돌아옴, 실패 문서 재업로드 → 같은 document id로 상태·청크만 교체(중복 없음) 확인.
+- 다음은 #44(청크 미리보기 시트)·#45(샘플 가이드 시드 스크립트) — STAGE 5 마일스톤에
+  아직 OPEN으로 남은 마지막 두 이슈. `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`를
+  Vercel에 등록하는 건 이제 안전하지만(위 "보안 규칙" 참고) 여전히 별도 배포 단계 — 지금
+  등록 안 함.
