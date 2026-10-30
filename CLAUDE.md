@@ -404,6 +404,28 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   빈 상태로 조용히 떨어짐(#40이 의도한 "크래시 없이 처리" 패턴이 목록 조회에도 적용된
   결과) — 버그로 보고 고치진 않았지만, Vercel 프리뷰에서는 이런 이유로 실데이터 기능
   검증이 원천적으로 안 된다는 걸 기록해둠. 실제 기능 검증은 로컬 + 실제 Supabase로만 가능.
-- 다음은 #45(샘플 가이드 시드 스크립트) — STAGE 5 마일스톤에 마지막으로 남은 이슈.
-  `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`를 Vercel에 등록하는 건 이제
-  안전하지만(위 "보안 규칙" 참고) 여전히 별도 배포 단계 — 지금 등록 안 함.
+- #45 샘플 가이드 시드 스크립트 — `scripts/seed-sample-guides.ts`(신규)가 `sample-guide/*.md`
+  (README.md 제외, 디렉터리에서 동적으로 읽음 — 하드코딩된 파일 목록 없음)를 데모 guide_set에
+  순서대로 업로드·청킹·임베딩까지 처리. 새 로직을 짜지 않고 `app/api/guides/upload/route.ts`가
+  쓰는 `getOrCreateDemoGuideSetId`(#43)·`processGuideDocument`(#42)·`guideFileSchema`(#40)를
+  그대로 재사용. 이미 같은 제목의 문서가 데모 set에 있으면 건너뛰는 멱등 방식으로 결정(사용자와
+  상의, "항상 전체 재생성"은 기각 — 실수로 여러 번 돌려도 기존 데이터를 안 건드리는 쪽을 택함).
+  Gemini 임베딩 API 레이트리밋 우려로 8개 문서를 `Promise.all`이 아니라 **순차** 처리, 한 문서
+  실패가 나머지를 막지 않게 파일 단위로 에러 격리. `process.loadEnvFile('.env.local')`로 독립
+  실행 가능하게 했는데, `lib/env.ts`가 모듈 import 시점에 Zod로 `process.env`를 검증해서
+  **`loadEnvFile` 이후 동적 `import()`로 lib 모듈을 가져와야** 함(일반 top-level import는
+  ESM 호이스팅 때문에 `loadEnvFile`보다 먼저 실행돼서 막힘). `tsx`를 devDependency로 추가,
+  `npm run guides:seed`로 실행 — tsx가 `tsconfig.json`의 `@/*` 경로 별칭을 추가 설정 없이
+  resolve하는 것까지 실제로 확인함. **실제 발견한 함정**: 로컬 `.env.local`이 실제로는
+  `LLM_PROVIDER=mock`이라 첫 실행이 가짜 임베딩으로 들어감 — 이건 테스트 데이터가 아니라
+  서비스가 실제로 쓸 데모 데이터라 즉시 지우고 `LLM_PROVIDER=gemini npm run guides:seed`(셸
+  export가 `.env.local` 값보다 우선하는 것 먼저 확인하고 진행)로 재시드. 최종적으로 실제
+  Supabase + 실제 Gemini API로 8개 전부 `ready` 생성, 재실행 시 8개 전부 "건너뜀"(멱등) 확인,
+  `/guides` 화면에서 청크·규칙 개수까지 실제 값으로 뜨는 것까지 브라우저로 확인.
+- **STAGE 5 마일스톤 이슈 6개(#40~#45) 전부 완료.** 마일스톤 자체는 사용자 요청으로 아직
+  열어둠(나중에 직접 닫기로 함). 다음은 STAGE 6 · RAG 생성 연결·가이드 검색(이슈 6개, 전부
+  OPEN) — 벡터 검색 함수(`match_guide_chunks`)를 만들고 `/api/chat`의 빈
+  `<guidelines></guidelines>` 블록(#18 때부터 플레이스홀더로 남아있던 자리, STAGE 2 노트
+  참고)에 실제로 주입하는 단계. `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`를
+  Vercel에 등록하는 건 이제 안전하지만(위 "보안 규칙" 참고) 여전히 별도 배포 단계 — 지금
+  등록 안 함.
