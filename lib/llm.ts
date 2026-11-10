@@ -109,3 +109,9 @@ export function getEmbeddingModel(): EmbeddingModel {
 export const GUIDE_EMBEDDING_PROVIDER_OPTIONS = {
   google: { outputDimensionality: EMBEDDING_DIMENSIONS, taskType: 'RETRIEVAL_DOCUMENT' as const },
 }
+
+// 검색 질의 임베딩용(STAGE 6, lib/rag/search.ts). 문서 저장용과 taskType만 다른
+// 비대칭 임베딩 — 같은 모델이라도 질의/문서를 구분해서 요청해야 검색 품질이 더 좋다.
+export const GUIDE_QUERY_EMBEDDING_PROVIDER_OPTIONS = {
+  google: { outputDimensionality: EMBEDDING_DIMENSIONS, taskType: 'RETRIEVAL_QUERY' as const },
+}
