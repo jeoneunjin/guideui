@@ -423,9 +423,37 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   Supabase + 실제 Gemini API로 8개 전부 `ready` 생성, 재실행 시 8개 전부 "건너뜀"(멱등) 확인,
   `/guides` 화면에서 청크·규칙 개수까지 실제 값으로 뜨는 것까지 브라우저로 확인.
 - **STAGE 5 마일스톤 이슈 6개(#40~#45) 전부 완료.** 마일스톤 자체는 사용자 요청으로 아직
-  열어둠(나중에 직접 닫기로 함). 다음은 STAGE 6 · RAG 생성 연결·가이드 검색(이슈 6개, 전부
-  OPEN) — 벡터 검색 함수(`match_guide_chunks`)를 만들고 `/api/chat`의 빈
-  `<guidelines></guidelines>` 블록(#18 때부터 플레이스홀더로 남아있던 자리, STAGE 2 노트
-  참고)에 실제로 주입하는 단계. `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`를
-  Vercel에 등록하는 건 이제 안전하지만(위 "보안 규칙" 참고) 여전히 별도 배포 단계 — 지금
-  등록 안 함.
+  열어둠(나중에 직접 닫기로 함).
+
+### STAGE 6 · RAG 생성 연결·가이드 검색 (이슈 6개: #46~#51, 진행 중)
+- #46 match_guide_chunks 함수와 검색 모듈 — `supabase/migrations/
+  20261110084132_match_guide_chunks.sql`의 `match_guide_chunks` SQL 함수(pgvector 코사인
+  유사도, 기존 `hnsw` 인덱스를 그대로 탐)와 이를 호출하는 `lib/rag/search.ts`의
+  `searchGuideChunks(supabase, guideSetId, query, matchCount)`. `guide_set_id`로 필터링하고
+  `guide_documents.status = 'ready'`인 문서의 청크만 대상으로 함(processing/failed 문서
+  청크가 검색에 섞이는 걸 막는 안전장치). `security definer` 아님 — `guide_chunks`는 #39에서
+  RLS만 켜고 정책을 안 만든 상태라 anon/authenticated는 애초에 못 보고, 호출하는 쪽(`/api/chat`,
+  향후 검색 API)이 전부 서버 라우트에서 `createSupabaseAdminClient()`(service-role)를 쓰는
+  기존 패턴을 그대로 따르면 돼서 새 RLS 정책이나 definer 권한이 필요 없었음. 질의 임베딩은
+  `lib/llm.ts`에 새로 추가한 `GUIDE_QUERY_EMBEDDING_PROVIDER_OPTIONS`(`taskType:
+  RETRIEVAL_QUERY`)로 요청 — #42에서 문서 저장용(`RETRIEVAL_DOCUMENT`)을 쓸 때부터 "검색
+  질의는 추후 RETRIEVAL_QUERY, STAGE 6에서"라고 남겨뒀던 주석을 실제로 채움(비대칭 임베딩,
+  같은 taskType을 재사용하는 것보다 검색 품질이 더 좋음). `match_threshold`는 함수 파라미터로
+  노출만 해두고 느슨한 기본값(0.3)만 둠 — 정교한 튜닝은 별도 이슈(#51)에서, 그때 함수나
+  TS 모듈을 재설계할 필요 없이 값만 조정하면 되게. 프롬프트 주입(#47)·검색 API/UI(#50)는
+  의도적으로 범위 밖에 둠. **실제 발견한 함정**: 구현 중 `supabase db push`가 연결 타임아웃으로
+  실패 — 실제 Supabase 프로젝트가 무료 티어 자동 정지(INACTIVE) 상태였음, CLI엔 재시작 명령이
+  없어서 대시보드에서 사용자가 직접 "Restore project"로 복구(로그인 폼에 비밀번호가
+  자동완성돼 있었지만 실제 계정 인증이라 직접 안 눌렀음 — 사용자에게 요청). 복구 후 마이그레이션
+  적용 성공. 라이브 검증(임시 스크립트, 커밋 안 함): 관련 질의("버튼 색상이 뭐예요?")는
+  `tokens.md`/`button.md` 청크가 유사도 0.72~0.75로, 무관한 질의("환불 정책이 뭐예요?")는
+  유사도 ~0.54로 뚜렷하게 낮게 나와 의미적으로 맞는 순위가 나오는 것까지 확인(이 수치는 #51
+  임계값 튜닝의 실측 참고자료로 남겨둠). `vector` 파라미터를 `number[]`로 그대로 `.rpc()`에
+  넘겼을 때 직렬화 문제가 생길까 우려했는데 추가 처리 없이 바로 동작함.
+- 다음은 #47(생성 프롬프트에 가이드 주입 + 문서 내 지시문 무시 처리) — `searchGuideChunks`를
+  `/api/chat`에서 호출해 `lib/generate-prompt.ts`의 빈 `<guidelines></guidelines>` 블록
+  (#18 때부터 플레이스홀더로 남아있던 자리, STAGE 2 노트 참고)에 실제로 채워 넣는 단계.
+  `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`를 Vercel에 등록하는 건 이제
+  안전하지만(위 "보안 규칙" 참고) STAGE 10(배포 단계)까지 미루기로 사용자와 다시 확인함 —
+  그 전까지 RAG 관련 PR들의 Vercel 프리뷰는 빌드·콘솔 에러 확인용 스모크 테스트로만 쓰고,
+  실동작 검증은 계속 로컬 + 실제 Supabase로 함.
