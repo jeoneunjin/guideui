@@ -7,6 +7,9 @@ import { extractCode } from '@/lib/code/extract-code'
 import { validateImports } from '@/lib/code/validate-imports'
 import { ALLOWED_IMPORT_SOURCES } from '@/lib/code/allowed-imports'
 import { logUsage } from '@/lib/usage-log'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { findDemoGuideSetId } from '@/lib/rag/demo-guide-set'
+import { searchGuideChunks, type GuideSearchResult } from '@/lib/rag/search'
 
 const MAX_HISTORY_MESSAGES = 10 // 최근 5턴(사용자+어시스턴트) 정도만 모델에 보냄
 
@@ -24,6 +27,19 @@ function toChunkedStream(text: string, signal: AbortSignal): ReadableStream<Uint
       controller.close()
     },
   })
+}
+
+async function fetchGuidelines(query: string): Promise<GuideSearchResult[]> {
+  try {
+    const supabase = createSupabaseAdminClient()
+    if (!supabase) return []
+    const guideSetId = await findDemoGuideSetId(supabase)
+    if (!guideSetId) return []
+    return await searchGuideChunks(supabase, guideSetId, query)
+  } catch (error) {
+    console.error('가이드 검색 실패:', error)
+    return []
+  }
 }
 
 const ChatRequestSchema = z.object({
@@ -54,10 +70,11 @@ export async function POST(req: Request) {
   const { messages, currentCode } = parsed.data
   try {
     const recentMessages = messages.slice(-MAX_HISTORY_MESSAGES)
+    const guidelines = await fetchGuidelines(recentMessages.at(-1)!.content)
     async function callModel(extra: { role: 'assistant' | 'user'; content: string }[] = []) {
       const result = streamText({
         model: getGenerationModel(),
-        system: buildGenerateSystemPrompt({ currentCode }),
+        system: buildGenerateSystemPrompt({ currentCode, guidelines }),
         messages: [...recentMessages, ...extra],
         abortSignal: req.signal,
       })
