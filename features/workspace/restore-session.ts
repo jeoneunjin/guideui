@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import type { GuidelineSource } from '@/lib/rag/guideline-sources'
 import type { ChatMessage } from './workspace-store'
 
 export type RestoredSession = {
@@ -29,7 +30,7 @@ export async function getLatestSession(): Promise<RestoredSession | null> {
 
     const { data: messages } = await supabase
       .from('messages')
-      .select('role, content')
+      .select('role, content, sources')
       .eq('session_id', session.id)
       .order('created_at', { ascending: true })
 
@@ -43,9 +44,15 @@ export async function getLatestSession(): Promise<RestoredSession | null> {
       .limit(1)
       .maybeSingle()
 
+    const chatMessages: ChatMessage[] = (messages ?? []).map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content as string,
+      sources: (m.sources as GuidelineSource[] | null) ?? undefined,
+    }))
+
     return {
       sessionId: session.id,
-      messages: (messages ?? []) as ChatMessage[],
+      messages: chatMessages,
       code: latest?.code ?? null,
       latestVersion: latest?.version ?? 0,
     }

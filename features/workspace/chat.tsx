@@ -5,9 +5,11 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Send, Square } from 'lucide-react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { extractCode } from '@/lib/code/extract-code'
 import { extractPartialCode } from '@/lib/code/extract-partial-code'
+import { decodeGuidelineSources, GUIDELINE_SOURCES_HEADER, type GuidelineSource } from '@/lib/rag/guideline-sources'
 import { useWorkspaceStore, type ChatMessage } from './workspace-store'
 import { useEnsureSession } from './use-ensure-session'
 import { useSaveMessage, useSaveVersion } from './use-session-mutations'
@@ -42,6 +44,7 @@ export function Chat() {
   const queryClient = useQueryClient()
   const [requestText, setRequestText] = useState('')
   const [streamingText, setStreamingText] = useState('')
+  const [openSource, setOpenSource] = useState<GuidelineSource | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const isPinnedToBottomRef = useRef(true)
@@ -77,11 +80,11 @@ export function Chat() {
     }
   }
 
-  async function persistAssistantTurn(content: string, code: string) {
+  async function persistAssistantTurn(content: string, code: string, sources?: GuidelineSource[]) {
     try {
       const sessionId = await ensureSessionId()
       if (!sessionId) return
-      const messageId = await saveMessage.mutateAsync({ sessionId, role: 'assistant', content })
+      const messageId = await saveMessage.mutateAsync({ sessionId, role: 'assistant', content, sources })
       await saveVersion.mutateAsync({
         sessionId,
         version: incrementVersion(),
@@ -115,6 +118,7 @@ export function Chat() {
         dispatch('fail')
         return
       }
+      const sources = decodeGuidelineSources(res.headers.get(GUIDELINE_SOURCES_HEADER))
       const reader = res.body!.getReader()
       const decoder = new TextDecoder()
       let fullText = ''
@@ -138,10 +142,10 @@ export function Chat() {
       const explanation = (fenceIndex === -1 ? fullText : fullText.slice(0, fenceIndex)).trim()
       const content = explanation || fullText
       const code = extractCode(fullText)
-      addMessage({ role: 'assistant', content })
+      addMessage({ role: 'assistant', content, sources })
       setCode(code)
       dispatch('finish')
-      persistAssistantTurn(content, code)
+      persistAssistantTurn(content, code, sources)
     } catch {
       setCode(codeBeforeStream)
       if (controller.signal.aborted) {
@@ -174,5 +178,5 @@ export function Chat() {
     abortControllerRef.current?.abort()
   }
 
-  return <aside aria-label="채팅" className="flex h-full min-h-0 flex-col bg-surface p-4"><div ref={messagesContainerRef} onScroll={handleMessagesScroll} className="min-h-0 flex-1 overflow-y-auto"><div className="flex flex-col gap-4 text-sm">{messages.length===0?<p className="text-fg-muted">만들고 싶은 UI를 설명해 주세요. 적용 중인 가이드에 맞춰 코드를 만들어요.</p>:messages.map((m,i)=><div key={i} className={cn('max-w-[90%] border border-line bg-surface p-3',m.role==='user'?'ml-auto':'max-w-[95%]')}>{m.role==='assistant'?<ReactMarkdown components={MARKDOWN_COMPONENTS}>{m.content}</ReactMarkdown>:m.content}</div>)}{isLoading&&<div className="max-w-[95%] border border-line bg-surface p-3"><ReactMarkdown components={MARKDOWN_COMPONENTS}>{streamingText||'코드를 생성하고 있어요.'}</ReactMarkdown><span className="ml-1 animate-pulse">▍</span></div>}{requestError&&<div role="alert" className="border border-line bg-surface p-3 text-danger-700">{requestError}<Button variant="secondary" size="sm" className="mt-2" onClick={handleRetry}>다시 시도하기</Button></div>}{status==='aborted'&&<div aria-live="polite" className="max-w-[95%] border border-line bg-surface p-3">생성을 중단했어요.<Button variant="secondary" size="sm" className="mt-2" onClick={handleRetry}>다시 생성하기</Button></div>}</div></div><div className="flex flex-wrap gap-2 py-3">{QUICK_PROMPTS.map(x=><Button key={x} variant="ghost" size="sm" disabled={isLoading} onClick={()=>handleSend(`${x} 만들어줘`)}>{x}</Button>)}</div><form onSubmit={(e)=>{e.preventDefault();handleSend(requestText)}} className="border-t border-line pt-3"><label htmlFor={requestId} className="mb-2 block text-sm font-medium">요청 입력</label><textarea id={requestId} value={requestText} onChange={(e)=>setRequestText(e.target.value)} onKeyDown={(e)=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();handleSend(requestText)}}} placeholder="예: 이메일 입력이 있는 뉴스레터 구독 폼" className="min-h-20 w-full resize-none rounded-input border border-line-input bg-surface px-3 py-2 text-sm" /><div className="mt-2 flex items-center justify-between gap-2"><span className="text-xs text-fg-muted">{isLoading?'Esc로 중단하기':'Ctrl + Enter로 보내기'}</span><Button type={isLoading?'button':'submit'} onClick={isLoading?handleAbort:undefined} disabled={!isLoading&&!requestText.trim()}>{isLoading?<><Square data-icon="inline-start"/>중단하기</>:<><Send data-icon="inline-start"/>보내기</>}</Button></div></form></aside>
+  return <aside aria-label="채팅" className="flex h-full min-h-0 flex-col bg-surface p-4"><div ref={messagesContainerRef} onScroll={handleMessagesScroll} className="min-h-0 flex-1 overflow-y-auto"><div className="flex flex-col gap-4 text-sm">{messages.length===0?<p className="text-fg-muted">만들고 싶은 UI를 설명해 주세요. 적용 중인 가이드에 맞춰 코드를 만들어요.</p>:messages.map((m,i)=><div key={i} className={cn('max-w-[90%] border border-line bg-surface p-3',m.role==='user'?'ml-auto':'max-w-[95%]')}>{m.role==='assistant'?<ReactMarkdown components={MARKDOWN_COMPONENTS}>{m.content}</ReactMarkdown>:m.content}{m.role==='assistant'&&m.sources&&m.sources.length>0&&<div className="mt-3 flex flex-wrap items-center gap-2 text-xs"><span className="text-fg-muted">참고한 가이드</span>{m.sources.map(s=><button key={s.id} type="button" onClick={()=>setOpenSource(s)} className="rounded-full border border-line px-2 py-1 hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line-focus">[{s.id}] {s.headingPath}</button>)}</div>}</div>)}{isLoading&&<div className="max-w-[95%] border border-line bg-surface p-3"><ReactMarkdown components={MARKDOWN_COMPONENTS}>{streamingText||'코드를 생성하고 있어요.'}</ReactMarkdown><span className="ml-1 animate-pulse">▍</span></div>}{requestError&&<div role="alert" className="border border-line bg-surface p-3 text-danger-700">{requestError}<Button variant="secondary" size="sm" className="mt-2" onClick={handleRetry}>다시 시도하기</Button></div>}{status==='aborted'&&<div aria-live="polite" className="max-w-[95%] border border-line bg-surface p-3">생성을 중단했어요.<Button variant="secondary" size="sm" className="mt-2" onClick={handleRetry}>다시 생성하기</Button></div>}</div></div><div className="flex flex-wrap gap-2 py-3">{QUICK_PROMPTS.map(x=><Button key={x} variant="ghost" size="sm" disabled={isLoading} onClick={()=>handleSend(`${x} 만들어줘`)}>{x}</Button>)}</div><form onSubmit={(e)=>{e.preventDefault();handleSend(requestText)}} className="border-t border-line pt-3"><label htmlFor={requestId} className="mb-2 block text-sm font-medium">요청 입력</label><textarea id={requestId} value={requestText} onChange={(e)=>setRequestText(e.target.value)} onKeyDown={(e)=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();handleSend(requestText)}}} placeholder="예: 이메일 입력이 있는 뉴스레터 구독 폼" className="min-h-20 w-full resize-none rounded-input border border-line-input bg-surface px-3 py-2 text-sm" /><div className="mt-2 flex items-center justify-between gap-2"><span className="text-xs text-fg-muted">{isLoading?'Esc로 중단하기':'Ctrl + Enter로 보내기'}</span><Button type={isLoading?'button':'submit'} onClick={isLoading?handleAbort:undefined} disabled={!isLoading&&!requestText.trim()}>{isLoading?<><Square data-icon="inline-start"/>중단하기</>:<><Send data-icon="inline-start"/>보내기</>}</Button></div></form><Dialog open={!!openSource} onOpenChange={(open)=>!open&&setOpenSource(null)}><DialogContent><DialogHeader><DialogTitle>참고한 가이드</DialogTitle></DialogHeader><p className="text-sm text-fg-muted">{openSource?.documentTitle} · {openSource?.headingPath}</p><p className="mt-2 text-sm text-fg-secondary">{openSource?.excerpt}</p></DialogContent></Dialog></aside>
 }
