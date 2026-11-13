@@ -470,10 +470,28 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   `type="submit"`, `justify-end gap-inline`)이 그대로 반영된 코드 생성 확인, "일반적인 카드
   하나 만들어줘"도 card.md 반영 확인. `LLM_PROVIDER=mock`(기본값) 경로도 에러 없이 정상 동작
   확인(메모리 `feedback_test_default_provider_path` 습관 유지).
-- 다음은 #48(출처 전달(응답 헤더)과 출처 칩·원문 모달) — #47이 서버에서 계산한 `guidelines`
-  (어떤 청크를 썼는지)를 클라이언트가 알 수 있게 응답 헤더 등으로 전달하고, 모델 응답의
-  `[G1]` 같은 인용을 파싱해 출처 칩·원문 모달로 보여주는 단계. `NEXT_PUBLIC_SUPABASE_URL`/
-  `NEXT_PUBLIC_SUPABASE_ANON_KEY`를 Vercel에 등록하는 건 이제 안전하지만(위 "보안 규칙" 참고)
-  STAGE 10(배포 단계)까지 미루기로 사용자와 다시 확인함 — 그 전까지 RAG 관련 PR들의 Vercel
-  프리뷰는 빌드·콘솔 에러 확인용 스모크 테스트로만 쓰고, 실동작 검증은 계속 로컬 + 실제
-  Supabase로 함.
+- #48 출처 전달(응답 헤더)과 출처 칩·원문 모달 — #47이 서버에서 계산한 `guidelines`(어떤
+  청크를 썼는지)를 클라이언트가 볼 수 있게 연결. 사실 이 UI는 STAGE 2(#102)에서 v0 원본에
+  있던 "참고한 가이드" 칩/다이얼로그를 "RAG 붙으면 다시 만들 것"이라며 일부러 지웠던 자리라,
+  그때 지워진 원본 코드를 git show로 찾아서 같은 모양(칩 여러 개 + 클릭하면 원문 다이얼로그)을
+  실제 데이터로 재현. `lib/rag/guideline-sources.ts`(신규)의 `toGuidelineSources()`가
+  검색 결과를 `G1,G2...` 번호 + 240자 발췌로 변환(프롬프트 주입용 `formatGuidelines`와는
+  별개 — 전체 본문 대신 발췌만), `app/api/chat/route.ts`가 `X-Guideline-Sources` 응답
+  헤더로 실어 보냄. 한글 비중이 높은 텍스트라 `encodeURIComponent`(바이트당 최대 9배
+  증가) 대신 **base64**(약 1.33배)로 인코딩 — 실측으로 헤더 크기 3.3KB 확인(안전한 수준).
+  `chat.tsx`가 헤더를 읽어 어시스턴트 메시지 아래에 "참고한 가이드" 칩을 그리고 클릭하면
+  다이얼로그로 발췌를 보여줌. 인라인 `[G1]` 텍스트를 클릭 가능한 링크로 파싱하진 않음 —
+  그건 `/search` 화면(`search-page.tsx`의 `Citation` 컴포넌트, #50 몫) 패턴이고, 채팅 쪽
+  원본 v0 디자인도 설명 문장은 텍스트 그대로 두고 별도 칩 목록만 인터랙티브했음. `messages.
+  sources jsonb`(#12 스키마부터 있었는데 지금까지 미사용이던 컬럼)에 저장·복원까지 연결해서
+  새로고침해도 칩이 안 사라짐(새 마이그레이션 없이 기존 `saveMessage`/`getLatestSession`에
+  필드만 추가). 단위 테스트(`guideline-sources.test.ts` 신규 + `route.test.ts`/
+  `session-persistence.test.ts` 보강) 102개 전부 통과, 실제 Supabase + 실제 Gemini로
+  라이브 검증: 칩 5개 정상 표시, 클릭 시 실제 button.md 발췌 표시, 새로고침해도 칩 유지
+  확인. `LLM_PROVIDER=mock`(기본값)도 헤더가 빈 배열로 정상 반환되는 것 확인.
+- 다음은 #49(가이드 적용 토글 연결) — `components/layout/app-shell.tsx`의 `guideEnabled`
+  (지금은 로컬 `useState`로만 존재, 아무 데도 안 쓰임)를 실제로 `/api/chat`의 검색·주입
+  on/off에 연결하는 단계. `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`를
+  Vercel에 등록하는 건 이제 안전하지만(위 "보안 규칙" 참고) STAGE 10(배포 단계)까지 미루기로
+  사용자와 다시 확인함 — 그 전까지 RAG 관련 PR들의 Vercel 프리뷰는 빌드·콘솔 에러 확인용
+  스모크 테스트로만 쓰고, 실동작 검증은 계속 로컬 + 실제 Supabase로 함.
