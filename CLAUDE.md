@@ -450,10 +450,30 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   유사도 ~0.54로 뚜렷하게 낮게 나와 의미적으로 맞는 순위가 나오는 것까지 확인(이 수치는 #51
   임계값 튜닝의 실측 참고자료로 남겨둠). `vector` 파라미터를 `number[]`로 그대로 `.rpc()`에
   넘겼을 때 직렬화 문제가 생길까 우려했는데 추가 처리 없이 바로 동작함.
-- 다음은 #47(생성 프롬프트에 가이드 주입 + 문서 내 지시문 무시 처리) — `searchGuideChunks`를
-  `/api/chat`에서 호출해 `lib/generate-prompt.ts`의 빈 `<guidelines></guidelines>` 블록
-  (#18 때부터 플레이스홀더로 남아있던 자리, STAGE 2 노트 참고)에 실제로 채워 넣는 단계.
-  `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`를 Vercel에 등록하는 건 이제
-  안전하지만(위 "보안 규칙" 참고) STAGE 10(배포 단계)까지 미루기로 사용자와 다시 확인함 —
-  그 전까지 RAG 관련 PR들의 Vercel 프리뷰는 빌드·콘솔 에러 확인용 스모크 테스트로만 쓰고,
-  실동작 검증은 계속 로컬 + 실제 Supabase로 함.
+- #47 생성 프롬프트에 가이드 주입 + 문서 내 지시문 무시 처리 — `app/api/chat/route.ts`에
+  `fetchGuidelines(query)` 추가, 사용자의 **최신 메시지**(`recentMessages.at(-1)!.content`)로
+  `searchGuideChunks`(#46)를 호출해 `lib/generate-prompt.ts`의 빈 `<guidelines></guidelines>`
+  블록(#18 때부터 플레이스홀더로 남아있던 자리, STAGE 2 노트 참고)을 실제로 채움. 1차 생성이
+  실패해 재생성할 때도 같은 검색 결과를 재사용(같은 요청이라 재검색 불필요). `formatGuidelines()`가
+  각 청크를 `[G1] 문서명 — 헤딩경로\n본문` 형태로 번호 매겨 넣는데, 이 `G1/G2...` 번호 체계는
+  STAGE 2 때 이미 써둔 "[G1][G3] 인용하라" 출력 지시문·`mocks/search.ts`의 검색 화면 목업과
+  맞춘 것(#48 출처 칩이 나중에 같은 번호 체계로 파싱할 수 있게). `createSupabaseAdminClient()`가
+  null이거나 데모 guide_set이 없거나 검색이 예외를 던지면 전부 빈 배열로 폴백해 `/api/chat`
+  자체는 항상 성공(기존 `app/api/chat/route.test.ts` 94개 테스트가 수정 없이 그대로 통과한 게
+  이 폴백이 실제로 작동한다는 증거). **보안**: `/guides`에서 누구나 `.md`를 업로드할 수 있어서
+  (#40) `<guidelines>` 안 내용은 신뢰 안 된 텍스트 — 기존 "지시문 무시하라" 소프트 방어에 더해,
+  문서 내용에 리터럴 `</guidelines>`가 섞여 있으면 태그가 조기에 닫혀 그 뒤 텍스트가 시스템
+  영역처럼 보이는 탈출 수법을 문자열 치환(`sanitizeGuidelineContent`)으로 막음. "가이드 적용"
+  토글(`app-shell.tsx`의 `guideEnabled`, 지금은 로컬 `useState`로만 존재)은 의도적으로 손대지
+  않음(#49), 이번 PR은 토글과 무관하게 항상 주입. 실제 Supabase + 실제 Gemini로 라이브 검증:
+  "저장 버튼 하나 만들어줘" → `[G1][G2][G3]` 인용 + 실제 button.md 규칙(`variant="primary"`,
+  `type="submit"`, `justify-end gap-inline`)이 그대로 반영된 코드 생성 확인, "일반적인 카드
+  하나 만들어줘"도 card.md 반영 확인. `LLM_PROVIDER=mock`(기본값) 경로도 에러 없이 정상 동작
+  확인(메모리 `feedback_test_default_provider_path` 습관 유지).
+- 다음은 #48(출처 전달(응답 헤더)과 출처 칩·원문 모달) — #47이 서버에서 계산한 `guidelines`
+  (어떤 청크를 썼는지)를 클라이언트가 알 수 있게 응답 헤더 등으로 전달하고, 모델 응답의
+  `[G1]` 같은 인용을 파싱해 출처 칩·원문 모달로 보여주는 단계. `NEXT_PUBLIC_SUPABASE_URL`/
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY`를 Vercel에 등록하는 건 이제 안전하지만(위 "보안 규칙" 참고)
+  STAGE 10(배포 단계)까지 미루기로 사용자와 다시 확인함 — 그 전까지 RAG 관련 PR들의 Vercel
+  프리뷰는 빌드·콘솔 에러 확인용 스모크 테스트로만 쓰고, 실동작 검증은 계속 로컬 + 실제
+  Supabase로 함.
