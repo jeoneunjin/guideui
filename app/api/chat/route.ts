@@ -10,6 +10,7 @@ import { logUsage } from '@/lib/usage-log'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { findDemoGuideSetId } from '@/lib/rag/demo-guide-set'
 import { searchGuideChunks, type GuideSearchResult } from '@/lib/rag/search'
+import { toGuidelineSources, GUIDELINE_SOURCES_HEADER } from '@/lib/rag/guideline-sources'
 
 const MAX_HISTORY_MESSAGES = 10 // 최근 5턴(사용자+어시스턴트) 정도만 모델에 보냄
 
@@ -71,6 +72,7 @@ export async function POST(req: Request) {
   try {
     const recentMessages = messages.slice(-MAX_HISTORY_MESSAGES)
     const guidelines = await fetchGuidelines(recentMessages.at(-1)!.content)
+    const guidelineSources = toGuidelineSources(guidelines)
     async function callModel(extra: { role: 'assistant' | 'user'; content: string }[] = []) {
       const result = streamText({
         model: getGenerationModel(),
@@ -117,7 +119,10 @@ export async function POST(req: Request) {
 
     after(() => logUsage({ req, ttftMs, tokens: totalTokens }))
     return new Response(toChunkedStream(text, req.signal), {
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        [GUIDELINE_SOURCES_HEADER]: Buffer.from(JSON.stringify(guidelineSources), 'utf-8').toString('base64'),
+      },
     })
   } catch (error) {
     if (req.signal.aborted) {

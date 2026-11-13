@@ -61,6 +61,8 @@ describe('POST /api/chat', () => {
 
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Type')).toBe('text/plain; charset=utf-8')
+    // Supabase 키가 없는 테스트 환경이라 가이드 검색이 빈 배열로 폴백해야 함(#47/#48).
+    expect(res.headers.get('X-Guideline-Sources')).toBe(Buffer.from('[]', 'utf-8').toString('base64'))
     expect(await res.text()).toBe(VALID_CODE)
     expect(mockStreamText).toHaveBeenCalledTimes(1)
     expect(mockAfter).toHaveBeenCalledTimes(1)

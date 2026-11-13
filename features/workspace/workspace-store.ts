@@ -2,10 +2,11 @@ import { create } from 'zustand'
 import { code as defaultCode } from '@/mocks/workspace'
 import { nextWorkspaceStatus, type WorkspaceEvent, type WorkspaceStatus } from './workspace-status'
 import type { RestoredSession } from './restore-session'
+import type { GuidelineSource } from '@/lib/rag/guideline-sources'
 
 export type { WorkspaceStatus }
 
-export type ChatMessage = { role: 'user' | 'assistant'; content: string }
+export type ChatMessage = { role: 'user' | 'assistant'; content: string; sources?: GuidelineSource[] }
 
 interface WorkspaceState {
   status: WorkspaceStatus

@@ -1,4 +1,5 @@
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import type { GuidelineSource } from '@/lib/rag/guideline-sources'
 
 export async function createSession(): Promise<string | null> {
   const supabase = createSupabaseBrowserClient()
@@ -19,13 +20,14 @@ export async function saveMessage(input: {
   sessionId: string
   role: 'user' | 'assistant'
   content: string
+  sources?: GuidelineSource[]
 }): Promise<string | null> {
   const supabase = createSupabaseBrowserClient()
   if (!supabase) return null
 
   const { data, error } = await supabase
     .from('messages')
-    .insert({ session_id: input.sessionId, role: input.role, content: input.content })
+    .insert({ session_id: input.sessionId, role: input.role, content: input.content, sources: input.sources ?? null })
     .select('id')
     .single()
   if (error) throw error

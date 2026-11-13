@@ -89,7 +89,20 @@ describe('session-persistence', () => {
 
       expect(id).toBe('message-1')
       expect(from).toHaveBeenCalledWith('messages')
-      expect(insert).toHaveBeenCalledWith({ session_id: 'session-1', role: 'assistant', content: '만들었어요' })
+      expect(insert).toHaveBeenCalledWith({ session_id: 'session-1', role: 'assistant', content: '만들었어요', sources: null })
+    })
+
+    it('sources를 넘기면 그대로 insert한다', async () => {
+      const sources = [{ id: 'G1', documentTitle: 'button.md', headingPath: 'Button > 규칙', excerpt: '발췌' }]
+      const { supabase, insert } = makeSupabase({
+        user: { id: 'user-1' },
+        insertResult: { data: { id: 'message-1' } },
+      })
+      mockCreateClient.mockReturnValue(supabase as never)
+
+      await saveMessage({ sessionId: 'session-1', role: 'assistant', content: '만들었어요', sources })
+
+      expect(insert).toHaveBeenCalledWith({ session_id: 'session-1', role: 'assistant', content: '만들었어요', sources })
     })
   })
 
