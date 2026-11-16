@@ -7,11 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
+import { useGuidePreferenceStore } from '@/lib/guide-preference-store'
 
 type NavItem = '워크스페이스' | '가이드 관리' | '가이드 검색'
 
 export function AppShell({ activeNav = '워크스페이스', children }: { activeNav?: NavItem; children: React.ReactNode }) {
-  const [guideEnabled, setGuideEnabled] = useState(true)
+  const guideEnabled = useGuidePreferenceStore((s) => s.guideEnabled)
+  const setGuideEnabled = useGuidePreferenceStore((s) => s.setGuideEnabled)
   const [mobileOpen, setMobileOpen] = useState(false)
   const navItems: { label: NavItem; href: string }[] = [
     { label: '워크스페이스', href: '/' },
