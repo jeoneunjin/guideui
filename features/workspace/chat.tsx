@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { extractCode } from '@/lib/code/extract-code'
 import { extractPartialCode } from '@/lib/code/extract-partial-code'
 import { decodeGuidelineSources, GUIDELINE_SOURCES_HEADER, type GuidelineSource } from '@/lib/rag/guideline-sources'
+import { useGuidePreferenceStore } from '@/lib/guide-preference-store'
 import { useWorkspaceStore, type ChatMessage } from './workspace-store'
 import { useEnsureSession } from './use-ensure-session'
 import { useSaveMessage, useSaveVersion } from './use-session-mutations'
@@ -38,6 +39,7 @@ export function Chat() {
   const requestError = useWorkspaceStore((s) => s.requestError)
   const setRequestError = useWorkspaceStore((s) => s.setRequestError)
   const incrementVersion = useWorkspaceStore((s) => s.incrementVersion)
+  const guideEnabled = useGuidePreferenceStore((s) => s.guideEnabled)
   const { ensureSessionId } = useEnsureSession()
   const saveMessage = useSaveMessage()
   const saveVersion = useSaveVersion()
@@ -109,7 +111,7 @@ export function Chat() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: messagesToSend, currentCode: codeBeforeStream }),
+        body: JSON.stringify({ messages: messagesToSend, currentCode: codeBeforeStream, guideEnabled }),
         signal: controller.signal,
       })
       if (!res.ok) {

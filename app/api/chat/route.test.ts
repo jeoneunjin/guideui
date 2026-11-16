@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { streamText } from 'ai'
 import { after } from 'next/server'
 import { logUsage } from '@/lib/usage-log'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { findDemoGuideSetId } from '@/lib/rag/demo-guide-set'
 import { POST } from './route'
 
 vi.mock('ai', () => ({ streamText: vi.fn() }))
@@ -10,10 +12,14 @@ vi.mock('next/server', async (importOriginal) => {
   return { ...actual, after: vi.fn((cb: () => void) => cb()) }
 })
 vi.mock('@/lib/usage-log', () => ({ logUsage: vi.fn() }))
+vi.mock('@/lib/supabase/admin', () => ({ createSupabaseAdminClient: vi.fn() }))
+vi.mock('@/lib/rag/demo-guide-set', () => ({ findDemoGuideSetId: vi.fn() }))
 
 const mockStreamText = vi.mocked(streamText)
 const mockAfter = vi.mocked(after)
 const mockLogUsage = vi.mocked(logUsage)
+const mockCreateSupabaseAdminClient = vi.mocked(createSupabaseAdminClient)
+const mockFindDemoGuideSetId = vi.mocked(findDemoGuideSetId)
 
 function mockResponseOnce(text: string) {
   mockStreamText.mockReturnValueOnce({
@@ -52,6 +58,8 @@ describe('POST /api/chat', () => {
     mockStreamText.mockReset()
     mockAfter.mockClear()
     mockLogUsage.mockClear()
+    mockCreateSupabaseAdminClient.mockReset()
+    mockFindDemoGuideSetId.mockReset()
   })
 
   it('1차 응답이 화이트리스트를 지키면 재생성 없이 그대로 스트리밍 반환한다', async () => {
@@ -110,5 +118,27 @@ describe('POST /api/chat', () => {
     const sentMessages = mockStreamText.mock.calls[0][0].messages
     expect(sentMessages).toHaveLength(10)
     expect(sentMessages).toEqual(messages.slice(-10))
+  })
+
+  describe('guideEnabled 토글', () => {
+    it('guideEnabled: false면 가이드 검색 자체를 시도하지 않는다', async () => {
+      mockCreateSupabaseAdminClient.mockReturnValue({} as never)
+      mockFindDemoGuideSetId.mockResolvedValue(null)
+      mockResponseOnce(VALID_CODE)
+
+      await POST(request({ messages: [{ role: 'user', content: '버튼 만들어줘' }], guideEnabled: false }))
+
+      expect(mockFindDemoGuideSetId).not.toHaveBeenCalled()
+    })
+
+    it('guideEnabled: true(또는 생략)면 가이드 검색을 시도한다', async () => {
+      mockCreateSupabaseAdminClient.mockReturnValue({} as never)
+      mockFindDemoGuideSetId.mockResolvedValue(null)
+      mockResponseOnce(VALID_CODE)
+
+      await POST(request({ messages: [{ role: 'user', content: '버튼 만들어줘' }] }))
+
+      expect(mockFindDemoGuideSetId).toHaveBeenCalledTimes(1)
+    })
   })
 })

@@ -53,6 +53,7 @@ const ChatRequestSchema = z.object({
     )
     .min(1),
   currentCode: z.string().optional(),
+  guideEnabled: z.boolean().default(true),
 })
 
 export async function POST(req: Request) {
@@ -68,10 +69,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { messages, currentCode } = parsed.data
+  const { messages, currentCode, guideEnabled } = parsed.data
   try {
     const recentMessages = messages.slice(-MAX_HISTORY_MESSAGES)
-    const guidelines = await fetchGuidelines(recentMessages.at(-1)!.content)
+    const guidelines = guideEnabled ? await fetchGuidelines(recentMessages.at(-1)!.content) : []
     const guidelineSources = toGuidelineSources(guidelines)
     async function callModel(extra: { role: 'assistant' | 'user'; content: string }[] = []) {
       const result = streamText({
