@@ -489,9 +489,28 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   `session-persistence.test.ts` 보강) 102개 전부 통과, 실제 Supabase + 실제 Gemini로
   라이브 검증: 칩 5개 정상 표시, 클릭 시 실제 button.md 발췌 표시, 새로고침해도 칩 유지
   확인. `LLM_PROVIDER=mock`(기본값)도 헤더가 빈 배열로 정상 반환되는 것 확인.
-- 다음은 #49(가이드 적용 토글 연결) — `components/layout/app-shell.tsx`의 `guideEnabled`
-  (지금은 로컬 `useState`로만 존재, 아무 데도 안 쓰임)를 실제로 `/api/chat`의 검색·주입
-  on/off에 연결하는 단계. `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`를
-  Vercel에 등록하는 건 이제 안전하지만(위 "보안 규칙" 참고) STAGE 10(배포 단계)까지 미루기로
+- #49 가이드 적용 토글 연결 — `components/layout/app-shell.tsx`의 "가이드 적용" 스위치
+  (`guideEnabled`)가 v0 목업 때부터 로컬 `useState`로만 존재해 꺼도 아무 효과가 없던 걸
+  실제로 `/api/chat`의 검색·주입 on/off에 연결. `lib/guide-preference-store.ts`(신규,
+  전역 Zustand 스토어)로 상태를 옮김 — `AppShell`(레이아웃)과 `Chat`(workspace feature)이
+  서로 다른 레이어라 한쪽이 다른 쪽 스토어에 의존하면 안 돼서(폴더 컨벤션상 `components/
+  layout/`은 특정 feature에 의존 금지), 중립적인 `lib/`에 단일 목적 스토어를 새로 둠(기존
+  `workspace-store.ts`에 억지로 안 끼워 넣음). `chat.tsx`가 `/api/chat` 요청 바디에
+  `guideEnabled`를 실어 보내고, 서버는 `false`면 `fetchGuidelines` 호출 자체를 건너뜀
+  (#47의 "Supabase 키 없을 때 빈 배열 폴백"과 달리 임베딩 생성+DB 조회 자체를 생략해서
+  지연·비용도 같이 줄어듦). 출처 칩(#48)은 `sources`가 비면 이미 자동으로 안 뜨므로 추가
+  UI 분기 불필요. "적용할 가이드: Sample DS" 드롭다운(가이드 세트 선택)은 범위 밖으로
+  안 건드림 — guide_set이 데모 하나뿐이라 아직 선택지 자체가 무의미. 테스트: `createSupabase
+  AdminClient`/`findDemoGuideSetId`를 모킹해서 `guideEnabled: false`면 `findDemoGuideSetId`가
+  호출 안 되고 `true`/생략이면 호출되는 걸 검증하는 테스트 2개 신규(104개 전부 통과). 실제
+  Supabase + 실제 Gemini로 라이브 검증: 토글 끄고 요청 → 응답 헤더가 `[]`의 base64(`W10=`)로
+  나오고 칩 안 뜸, 생성 코드도 button.md 규칙을 덜 따르는 더 일반적인 결과로 확인. 토글
+  다시 켜고 요청 → card.md 칩 5개 정상 복원 확인(on/off 비교 — STAGE 6 마일스톤 완료 기준의
+  핵심 포인트).
+- **STAGE 6 마일스톤 완료 기준("가이드 적용 on/off 비교 시 규칙 반영 차이가 보이고, 출처
+  칩으로 근거를 확인할 수 있다")이 #47~#49로 전부 실제 동작하는 것까지 확인됨.** 다음은
+  #50(가이드 검색 화면)·#51(검색 결과 없음 처리 및 유사도 임계값 튜닝) — STAGE 6에 남은
+  마지막 두 이슈. `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`를 Vercel에
+  등록하는 건 이제 안전하지만(위 "보안 규칙" 참고) STAGE 10(배포 단계)까지 미루기로
   사용자와 다시 확인함 — 그 전까지 RAG 관련 PR들의 Vercel 프리뷰는 빌드·콘솔 에러 확인용
   스모크 테스트로만 쓰고, 실동작 검증은 계속 로컬 + 실제 Supabase로 함.
