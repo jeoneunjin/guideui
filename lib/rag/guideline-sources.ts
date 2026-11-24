@@ -5,6 +5,7 @@ export type GuidelineSource = {
   documentTitle: string
   headingPath: string
   excerpt: string
+  similarity: number
 }
 
 export const GUIDELINE_SOURCES_HEADER = 'X-Guideline-Sources'
@@ -18,6 +19,7 @@ export function toGuidelineSources(results: GuideSearchResult[]): GuidelineSourc
       documentTitle: r.documentTitle,
       headingPath: r.headingPath || '본문',
       excerpt: trimmed.length > EXCERPT_MAX_LENGTH ? `${trimmed.slice(0, EXCERPT_MAX_LENGTH)}…` : trimmed,
+      similarity: r.similarity,
     }
   })
 }

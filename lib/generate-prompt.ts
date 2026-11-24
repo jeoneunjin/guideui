@@ -10,7 +10,7 @@ function sanitizeGuidelineContent(content: string): string {
   return content.replace(/<\/\s*guidelines\s*>/gi, '(guidelines)')
 }
 
-function formatGuidelines(results: GuideSearchResult[]): string {
+export function formatGuidelines(results: GuideSearchResult[]): string {
   if (results.length === 0) return ''
   return results
     .map(

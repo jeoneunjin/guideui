@@ -93,7 +93,7 @@ describe('session-persistence', () => {
     })
 
     it('sources를 넘기면 그대로 insert한다', async () => {
-      const sources = [{ id: 'G1', documentTitle: 'button.md', headingPath: 'Button > 규칙', excerpt: '발췌' }]
+      const sources = [{ id: 'G1', documentTitle: 'button.md', headingPath: 'Button > 규칙', excerpt: '발췌', similarity: 0.8 }]
       const { supabase, insert } = makeSupabase({
         user: { id: 'user-1' },
         insertResult: { data: { id: 'message-1' } },
