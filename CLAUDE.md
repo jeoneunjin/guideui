@@ -508,9 +508,29 @@ Vercel AI SDK · Supabase(Postgres + pgvector) · Sandpack(미리보기) · Mona
   다시 켜고 요청 → card.md 칩 5개 정상 복원 확인(on/off 비교 — STAGE 6 마일스톤 완료 기준의
   핵심 포인트).
 - **STAGE 6 마일스톤 완료 기준("가이드 적용 on/off 비교 시 규칙 반영 차이가 보이고, 출처
-  칩으로 근거를 확인할 수 있다")이 #47~#49로 전부 실제 동작하는 것까지 확인됨.** 다음은
-  #50(가이드 검색 화면)·#51(검색 결과 없음 처리 및 유사도 임계값 튜닝) — STAGE 6에 남은
-  마지막 두 이슈. `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`를 Vercel에
-  등록하는 건 이제 안전하지만(위 "보안 규칙" 참고) STAGE 10(배포 단계)까지 미루기로
-  사용자와 다시 확인함 — 그 전까지 RAG 관련 PR들의 Vercel 프리뷰는 빌드·콘솔 에러 확인용
-  스모크 테스트로만 쓰고, 실동작 검증은 계속 로컬 + 실제 Supabase로 함.
+  칩으로 근거를 확인할 수 있다")이 #47~#49로 전부 실제 동작하는 것까지 확인됨.**
+- #50 가이드 검색 화면 (청크 목록 + 요약 스트리밍) — `/search`를 v0 목업에서 실제 검색·답변
+  흐름으로 연결. `app/api/guides/search/route.ts`(신규)가 `searchGuideChunks`(#46)로 관련
+  청크를 찾고, 코드 검증이 필요 없는 평문 답변이라 `/api/chat`(#27, AST 검증 때문에 합성
+  스트림)과 달리 `streamText().textStream`을 `TextEncoderStream`으로 바로 파이프해 진짜
+  토큰 단위 실시간 스트리밍을 함. 검색 결과 0개 → 모델 호출 없이 결정적으로 고정된
+  no-result 응답(할루시네이션 방지), Supabase/guide_set 문제 → 500 에러로 구분 —
+  `Content-Type`(application/json vs text/plain)으로 클라이언트가 두 경우를 가름.
+  `lib/search-prompt.ts`(신규)는 `generate-prompt.ts`에서 export한 `formatGuidelines`를
+  재사용(번호 매기기·프롬프트 인젝션 방어를 코드 생성용과 공유). `GuidelineSource`(#48)에
+  `similarity` 필드 추가(관련 가이드 패널 유사도 바 표시용). `search-page.tsx`는
+  `guides-page.tsx`(#44)가 쓴 `isMockState` 패턴 재사용 — `?state=` 데모 6종
+  (`e2e/a11y.spec.ts`가 검사 중)은 그대로 보존, 실제 데이터 경로를 병렬로 추가. 인용
+  `[G1]` 파싱·관련 가이드 패널 매핑은 mock/실제 공통 구조로 통일. **실제 발견한 버그**:
+  `SearchPage`의 기존 `initialState = 'initial'` 기본값이 mock state 이름과 겹쳐서,
+  `?state=` 없이 일반 접속해도 전부 mock 경로로 빠지고 있었음 — 기본값 제거로 수정,
+  a11y 테스트(16개)로 회귀 없음 재확인. 실제 Supabase + 실제 Gemini로 라이브 검증:
+  관련 질문 → 실시간 스트리밍 답변 + 실제 인용·유사도(0.81, 0.77 등) + 인용 클릭 시
+  해당 카드로 스크롤 확인. 완전히 무관한 질문("환불 정책", "오늘 날씨")도 임계값(0.3)이
+  느슨해 결과가 나오는 것 확인 — no-result 트리거 자체는 유닛 테스트로 검증됐고, 임계값을
+  실제로 의미 있게 만드는 건 #51에서.
+- 다음은 #51(검색 결과 없음 처리 및 유사도 임계값 튜닝) — STAGE 6에 남은 마지막 이슈.
+  `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`를 Vercel에 등록하는 건 이제
+  안전하지만(위 "보안 규칙" 참고) STAGE 10(배포 단계)까지 미루기로 사용자와 다시 확인함 —
+  그 전까지 RAG 관련 PR들의 Vercel 프리뷰는 빌드·콘솔 에러 확인용 스모크 테스트로만 쓰고,
+  실동작 검증은 계속 로컬 + 실제 Supabase로 함.
